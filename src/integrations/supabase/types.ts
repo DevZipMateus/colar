@@ -9,13 +9,239 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string | null
+          group_id: string
+          id: string
+          is_recurring: boolean | null
+          next_due_date: string | null
+          recurrence_type: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          created_by: string
+          description: string
+          due_date?: string | null
+          group_id: string
+          id?: string
+          is_recurring?: boolean | null
+          next_due_date?: string | null
+          recurrence_type?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string | null
+          group_id?: string
+          id?: string
+          is_recurring?: boolean | null
+          next_due_date?: string | null
+          recurrence_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          invite_code: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      inventory_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          minimum_stock: number | null
+          name: string
+          quantity: number | null
+          unit: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          minimum_stock?: number | null
+          name: string
+          quantity?: number | null
+          unit?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          minimum_stock?: number | null
+          name?: string
+          quantity?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          completed: boolean | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          group_id: string
+          id: string
+          title: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed?: boolean | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          group_id: string
+          id?: string
+          title: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed?: boolean | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          group_id?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_recurring_expenses: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
