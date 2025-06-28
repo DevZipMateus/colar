@@ -1,10 +1,22 @@
-
 import React, { useState } from 'react';
 import { Plus, DollarSign, TrendingUp, TrendingDown, ShoppingCart, Home, Car, Coffee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const Finances = () => {
+interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface FinancesProps {
+  currentGroup: Group;
+}
+
+const Finances = ({ currentGroup }: FinancesProps) => {
   const [showAddExpense, setShowAddExpense] = useState(false);
 
   const expenses = [
@@ -24,7 +36,7 @@ const Finances = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Controle Financeiro</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Controle Financeiro - {currentGroup.name}</h2>
         <Button 
           onClick={() => setShowAddExpense(true)}
           className="bg-colar-orange hover:bg-colar-orange-dark text-white"

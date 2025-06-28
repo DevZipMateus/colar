@@ -1,10 +1,22 @@
-
 import React, { useState } from 'react';
 import { Plus, Package, AlertTriangle, ShoppingCart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const Inventory = () => {
+interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface InventoryProps {
+  currentGroup: Group;
+}
+
+const Inventory = ({ currentGroup }: InventoryProps) => {
   const [showAddItem, setShowAddItem] = useState(false);
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([
@@ -43,7 +55,7 @@ const Inventory = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Controle de Estoque</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Estoque - {currentGroup.name}</h2>
         <Button 
           onClick={() => setShowAddItem(true)}
           className="bg-home-purple hover:bg-home-purple/90"

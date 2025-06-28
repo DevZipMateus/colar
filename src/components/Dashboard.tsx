@@ -2,13 +2,26 @@
 import React from 'react';
 import { DollarSign, CheckSquare, Package, TrendingUp, AlertCircle, ShoppingCart } from 'lucide-react';
 
-const Dashboard = () => {
+interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface DashboardProps {
+  currentGroup: Group;
+}
+
+const Dashboard = ({ currentGroup }: DashboardProps) => {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Olá, Maria! 👋</h2>
-          <p className="text-gray-600 mt-1">Bem-vinda de volta ao CoLar</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Olá! 👋</h2>
+          <p className="text-gray-600 mt-1">Bem-vindo ao {currentGroup.name}</p>
         </div>
       </div>
 

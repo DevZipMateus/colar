@@ -1,10 +1,22 @@
-
 import React, { useState } from 'react';
 import { Plus, CheckSquare, Clock, User, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const Tasks = () => {
+interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface TasksProps {
+  currentGroup: Group;
+}
+
+const Tasks = ({ currentGroup }: TasksProps) => {
   const [showAddTask, setShowAddTask] = useState(false);
   const [tasks, setTasks] = useState([
     { id: 1, title: 'Tirar o lixo', responsible: 'João', dueDate: '28/06/2025', completed: false, priority: 'high' },
@@ -44,7 +56,7 @@ const Tasks = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Tarefas Domésticas</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Tarefas - {currentGroup.name}</h2>
         <Button 
           onClick={() => setShowAddTask(true)}
           className="bg-colar-navy hover:bg-colar-navy-dark text-white"
