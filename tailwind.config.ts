@@ -63,14 +63,29 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Cores personalizadas para o app
+				// Cores do CoLar baseadas na logo
+				colar: {
+					orange: '#F5A623', // Cor laranja/amarelo da logo
+					'orange-light': '#FFB84D',
+					'orange-dark': '#E5951A',
+					navy: '#2B2D42', // Azul escuro da logo
+					'navy-light': '#3C4563',
+					'navy-dark': '#1E1F2E',
+					red: '#DC3545', // Vermelho do coração
+					'red-light': '#E74858',
+					'red-dark': '#B02A37',
+					yellow: '#F7C52D', // Amarelo mais claro
+					'yellow-light': '#F9D55B',
+					background: '#FFF8F0', // Fundo suave inspirado no laranja
+				},
+				// Mantendo as cores antigas para compatibilidade
 				home: {
-					green: '#10B981',
-					'green-light': '#34D399',
-					blue: '#3B82F6',
-					'blue-light': '#60A5FA',
-					purple: '#8B5CF6',
-					'purple-light': '#A78BFA',
+					green: '#F5A623', // Mudando para laranja
+					'green-light': '#FFB84D',
+					blue: '#2B2D42', // Mudando para azul escuro
+					'blue-light': '#3C4563',
+					purple: '#DC3545', // Mudando para vermelho
+					'purple-light': '#E74858',
 				}
 			},
 			borderRadius: {

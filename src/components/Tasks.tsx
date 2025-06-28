@@ -25,18 +25,18 @@ const Tasks = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-200 bg-red-50';
-      case 'medium': return 'border-yellow-200 bg-yellow-50';
-      case 'low': return 'border-green-200 bg-green-50';
+      case 'high': return 'border-colar-red/30 bg-colar-red/10';
+      case 'medium': return 'border-colar-orange/30 bg-colar-orange/10';
+      case 'low': return 'border-colar-navy/30 bg-colar-navy/10';
       default: return 'border-gray-200 bg-gray-50';
     }
   };
 
   const getPriorityDot = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
+      case 'high': return 'bg-colar-red';
+      case 'medium': return 'bg-colar-orange';
+      case 'low': return 'bg-colar-navy';
       default: return 'bg-gray-500';
     }
   };
@@ -44,10 +44,10 @@ const Tasks = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Tarefas Domésticas</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Tarefas Domésticas</h2>
         <Button 
           onClick={() => setShowAddTask(true)}
-          className="bg-home-blue hover:bg-home-blue/90"
+          className="bg-colar-navy hover:bg-colar-navy-dark text-white"
         >
           <Plus size={16} className="mr-2" />
           Nova Tarefa
@@ -58,19 +58,19 @@ const Tasks = () => {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-500">{pendingTasks.length}</div>
+            <div className="text-2xl font-bold text-colar-red">{pendingTasks.length}</div>
             <div className="text-sm text-gray-600">Pendentes</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-500">{completedTasks.length}</div>
+            <div className="text-2xl font-bold text-colar-orange">{completedTasks.length}</div>
             <div className="text-sm text-gray-600">Concluídas</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-home-blue">{tasks.length}</div>
+            <div className="text-2xl font-bold text-colar-navy">{tasks.length}</div>
             <div className="text-sm text-gray-600">Total</div>
           </CardContent>
         </Card>
@@ -79,8 +79,8 @@ const Tasks = () => {
       {/* Tarefas Pendentes */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Clock size={20} className="mr-2 text-home-blue" />
+          <CardTitle className="flex items-center text-colar-navy">
+            <Clock size={20} className="mr-2 text-colar-navy" />
             Tarefas Pendentes
           </CardTitle>
         </CardHeader>
@@ -96,11 +96,11 @@ const Tasks = () => {
                     type="checkbox" 
                     checked={task.completed}
                     onChange={() => toggleTask(task.id)}
-                    className="w-5 h-5 rounded border-gray-300 text-home-blue focus:ring-home-blue"
+                    className="w-5 h-5 rounded border-gray-300 text-colar-navy focus:ring-colar-navy"
                   />
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-medium text-gray-900">{task.title}</h3>
+                      <h3 className="font-medium text-colar-navy">{task.title}</h3>
                       <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
                     </div>
                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
@@ -131,8 +131,8 @@ const Tasks = () => {
       {completedTasks.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <CheckSquare size={20} className="mr-2 text-green-500" />
+            <CardTitle className="flex items-center text-colar-navy">
+              <CheckSquare size={20} className="mr-2 text-colar-orange" />
               Tarefas Concluídas
             </CardTitle>
           </CardHeader>
@@ -145,7 +145,7 @@ const Tasks = () => {
                       type="checkbox" 
                       checked={task.completed}
                       onChange={() => toggleTask(task.id)}
-                      className="w-5 h-5 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                      className="w-5 h-5 rounded border-gray-300 text-colar-orange focus:ring-colar-orange"
                     />
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-600 line-through">{task.title}</h3>
@@ -172,23 +172,23 @@ const Tasks = () => {
       {showAddTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Nova Tarefa</h3>
+            <h3 className="text-lg font-semibold text-colar-navy mb-4">Nova Tarefa</h3>
             <div className="space-y-4">
               <input 
                 type="text" 
                 placeholder="Nome da tarefa"
-                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-blue focus:border-transparent"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent"
               />
-              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-blue focus:border-transparent">
+              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent">
                 <option>Selecione o responsável</option>
                 <option>João</option>
                 <option>Maria</option>
               </select>
               <input 
                 type="date" 
-                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-blue focus:border-transparent"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent"
               />
-              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-blue focus:border-transparent">
+              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent">
                 <option>Prioridade</option>
                 <option value="high">Alta</option>
                 <option value="medium">Média</option>
@@ -204,7 +204,7 @@ const Tasks = () => {
                 </Button>
                 <Button 
                   onClick={() => setShowAddTask(false)}
-                  className="flex-1 bg-home-blue hover:bg-home-blue/90"
+                  className="flex-1 bg-colar-navy hover:bg-colar-navy-dark text-white"
                 >
                   Criar Tarefa
                 </Button>

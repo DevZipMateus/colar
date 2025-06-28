@@ -25,7 +25,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:flex">
+    <div className="min-h-screen bg-colar-background md:flex">
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-1 pb-20 md:pb-0">
         {renderContent()}

@@ -15,19 +15,19 @@ const Finances = () => {
   ];
 
   const categories = [
-    { name: 'Mercado', color: 'bg-green-500', amount: 824.50 },
-    { name: 'Contas', color: 'bg-blue-500', amount: 567.30 },
-    { name: 'Transporte', color: 'bg-purple-500', amount: 345.00 },
-    { name: 'Alimentação', color: 'bg-orange-500', amount: 234.80 },
+    { name: 'Mercado', color: 'bg-colar-orange', amount: 824.50 },
+    { name: 'Contas', color: 'bg-colar-navy', amount: 567.30 },
+    { name: 'Transporte', color: 'bg-colar-red', amount: 345.00 },
+    { name: 'Alimentação', color: 'bg-colar-yellow', amount: 234.80 },
   ];
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Controle Financeiro</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Controle Financeiro</h2>
         <Button 
           onClick={() => setShowAddExpense(true)}
-          className="bg-home-green hover:bg-home-green/90"
+          className="bg-colar-orange hover:bg-colar-orange-dark text-white"
         >
           <Plus size={16} className="mr-2" />
           Adicionar
@@ -42,10 +42,10 @@ const Finances = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              <TrendingUp className="text-red-500" size={20} />
-              <span className="text-2xl font-bold text-gray-900">R$ 2.847,60</span>
+              <TrendingUp className="text-colar-red" size={20} />
+              <span className="text-2xl font-bold text-colar-navy">R$ 2.847,60</span>
             </div>
-            <p className="text-sm text-red-500 mt-1">+12% vs maio</p>
+            <p className="text-sm text-colar-red mt-1">+12% vs maio</p>
           </CardContent>
         </Card>
 
@@ -57,11 +57,11 @@ const Finances = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">João</span>
-                <span className="text-sm font-semibold">R$ 1.423,80</span>
+                <span className="text-sm font-semibold text-colar-navy">R$ 1.423,80</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Maria</span>
-                <span className="text-sm font-semibold">R$ 1.423,80</span>
+                <span className="text-sm font-semibold text-colar-navy">R$ 1.423,80</span>
               </div>
             </div>
           </CardContent>
@@ -71,7 +71,7 @@ const Finances = () => {
       {/* Gastos por Categoria */}
       <Card>
         <CardHeader>
-          <CardTitle>Gastos por Categoria</CardTitle>
+          <CardTitle className="text-colar-navy">Gastos por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -80,8 +80,8 @@ const Finances = () => {
                 <div className={`w-4 h-4 rounded-full ${category.color}`}></div>
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">{category.name}</span>
-                    <span className="text-sm font-semibold">R$ {category.amount.toFixed(2)}</span>
+                    <span className="text-sm font-medium text-colar-navy">{category.name}</span>
+                    <span className="text-sm font-semibold text-colar-navy">R$ {category.amount.toFixed(2)}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                     <div 
@@ -99,7 +99,7 @@ const Finances = () => {
       {/* Lista de Despesas */}
       <Card>
         <CardHeader>
-          <CardTitle>Despesas Recentes</CardTitle>
+          <CardTitle className="text-colar-navy">Despesas Recentes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -107,15 +107,15 @@ const Finances = () => {
               const Icon = expense.icon;
               return (
                 <div key={expense.id} className="flex items-center space-x-4 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="w-10 h-10 bg-home-green/20 rounded-full flex items-center justify-center">
-                    <Icon size={16} className="text-home-green" />
+                  <div className="w-10 h-10 bg-colar-orange/20 rounded-full flex items-center justify-center">
+                    <Icon size={16} className="text-colar-orange" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{expense.description}</p>
+                    <p className="font-medium text-colar-navy">{expense.description}</p>
                     <p className="text-sm text-gray-500">{expense.category} • {expense.user} • {expense.date}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">R$ {expense.amount.toFixed(2)}</p>
+                    <p className="font-semibold text-colar-navy">R$ {expense.amount.toFixed(2)}</p>
                   </div>
                 </div>
               );
@@ -128,19 +128,19 @@ const Finances = () => {
       {showAddExpense && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Adicionar Despesa</h3>
+            <h3 className="text-lg font-semibold text-colar-navy mb-4">Adicionar Despesa</h3>
             <div className="space-y-4">
               <input 
                 type="text" 
                 placeholder="Descrição da despesa"
-                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-green focus:border-transparent"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-orange focus:border-transparent"
               />
               <input 
                 type="number" 
                 placeholder="Valor (R$)"
-                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-green focus:border-transparent"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-orange focus:border-transparent"
               />
-              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-home-green focus:border-transparent">
+              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-orange focus:border-transparent">
                 <option>Selecione a categoria</option>
                 <option>Mercado</option>
                 <option>Contas</option>
@@ -158,7 +158,7 @@ const Finances = () => {
                 </Button>
                 <Button 
                   onClick={() => setShowAddExpense(false)}
-                  className="flex-1 bg-home-green hover:bg-home-green/90"
+                  className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
                 >
                   Adicionar
                 </Button>
