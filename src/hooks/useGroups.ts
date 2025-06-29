@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,6 +73,16 @@ export const useGroups = () => {
 
     try {
       console.log('Creating group:', { name, description, user_id: user.id });
+      console.log('Current auth user:', await supabase.auth.getUser());
+      
+      // First, let's check if we can access the current user
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Error getting current user:', userError);
+        return { error: 'Authentication error' };
+      }
+      
+      console.log('Current authenticated user:', currentUser);
       
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
@@ -87,10 +96,16 @@ export const useGroups = () => {
 
       if (groupError) {
         console.error('Error creating group:', groupError);
+        console.error('Group error details:', {
+          code: groupError.code,
+          message: groupError.message,
+          details: groupError.details,
+          hint: groupError.hint
+        });
         return { error: groupError.message };
       }
 
-      console.log('Group created:', groupData);
+      console.log('Group created successfully:', groupData);
 
       // Add creator as admin member
       const { error: memberError } = await supabase
@@ -103,6 +118,12 @@ export const useGroups = () => {
 
       if (memberError) {
         console.error('Error adding member:', memberError);
+        console.error('Member error details:', {
+          code: memberError.code,
+          message: memberError.message,
+          details: memberError.details,
+          hint: memberError.hint
+        });
         return { error: memberError.message };
       }
 
