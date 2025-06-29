@@ -19,27 +19,51 @@ export const useGroups = () => {
   const { user } = useAuth();
 
   const fetchGroups = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .order('created_at', { ascending: false });
+      console.log('Fetching groups for user:', user.id);
+      
+      // Fetch groups where the user is a member
+      const { data: memberGroups, error: memberError } = await supabase
+        .from('group_members')
+        .select(`
+          group_id,
+          groups!inner (
+            id,
+            name,
+            description,
+            invite_code,
+            created_by,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error fetching groups:', error);
+      if (memberError) {
+        console.error('Error fetching groups:', memberError);
         return;
       }
 
-      setGroups(data || []);
+      console.log('Raw member groups data:', memberGroups);
+
+      // Extract the groups from the nested structure
+      const groupsData = memberGroups?.map(item => item.groups) || [];
+      
+      console.log('Processed groups data:', groupsData);
+      
+      setGroups(groupsData);
       
       // Set first group as current if none selected
-      if (!currentGroup && data && data.length > 0) {
-        setCurrentGroup(data[0]);
+      if (!currentGroup && groupsData && groupsData.length > 0) {
+        setCurrentGroup(groupsData[0]);
+        console.log('Set current group to:', groupsData[0]);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in fetchGroups:', error);
     } finally {
       setLoading(false);
     }
@@ -49,6 +73,8 @@ export const useGroups = () => {
     if (!user) return { error: 'User not authenticated' };
 
     try {
+      console.log('Creating group:', { name, description, user_id: user.id });
+      
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .insert({
@@ -60,8 +86,11 @@ export const useGroups = () => {
         .single();
 
       if (groupError) {
+        console.error('Error creating group:', groupError);
         return { error: groupError.message };
       }
+
+      console.log('Group created:', groupData);
 
       // Add creator as admin member
       const { error: memberError } = await supabase
@@ -73,12 +102,16 @@ export const useGroups = () => {
         });
 
       if (memberError) {
+        console.error('Error adding member:', memberError);
         return { error: memberError.message };
       }
 
+      console.log('Member added successfully');
+      
       await fetchGroups();
       return { data: groupData, error: null };
     } catch (error) {
+      console.error('Error in createGroup:', error);
       return { error: 'Failed to create group' };
     }
   };
@@ -87,6 +120,8 @@ export const useGroups = () => {
     if (!user) return { error: 'User not authenticated' };
 
     try {
+      console.log('Joining group with invite code:', inviteCode);
+      
       // Find group by invite code
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
@@ -95,8 +130,11 @@ export const useGroups = () => {
         .single();
 
       if (groupError) {
+        console.error('Error finding group:', groupError);
         return { error: 'Código de convite inválido' };
       }
+
+      console.log('Found group:', groupData);
 
       // Check if user is already a member
       const { data: existingMember } = await supabase
@@ -107,6 +145,7 @@ export const useGroups = () => {
         .single();
 
       if (existingMember) {
+        console.log('User is already a member');
         return { error: 'Você já faz parte deste grupo' };
       }
 
@@ -120,12 +159,16 @@ export const useGroups = () => {
         });
 
       if (memberError) {
+        console.error('Error joining group:', memberError);
         return { error: memberError.message };
       }
 
+      console.log('Successfully joined group');
+      
       await fetchGroups();
       return { data: groupData, error: null };
     } catch (error) {
+      console.error('Error in joinGroup:', error);
       return { error: 'Failed to join group' };
     }
   };
@@ -133,6 +176,10 @@ export const useGroups = () => {
   useEffect(() => {
     if (user) {
       fetchGroups();
+    } else {
+      setGroups([]);
+      setCurrentGroup(null);
+      setLoading(false);
     }
   }, [user]);
 
