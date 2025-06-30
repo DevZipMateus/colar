@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,8 +25,6 @@ export const useGroups = () => {
     }
 
     try {
-      console.log('Fetching groups for user:', user.id);
-      
       // Fetch groups where the user is a member
       const { data: memberGroups, error: memberError } = await supabase
         .from('group_members')
@@ -47,19 +46,14 @@ export const useGroups = () => {
         return;
       }
 
-      console.log('Raw member groups data:', memberGroups);
-
       // Extract the groups from the nested structure
       const groupsData = memberGroups?.map(item => item.groups) || [];
-      
-      console.log('Processed groups data:', groupsData);
       
       setGroups(groupsData);
       
       // Set first group as current if none selected
       if (!currentGroup && groupsData && groupsData.length > 0) {
         setCurrentGroup(groupsData[0]);
-        console.log('Set current group to:', groupsData[0]);
       }
     } catch (error) {
       console.error('Error in fetchGroups:', error);
@@ -72,18 +66,6 @@ export const useGroups = () => {
     if (!user) return { error: 'User not authenticated' };
 
     try {
-      console.log('Creating group:', { name, description, user_id: user.id });
-      console.log('Current auth user:', await supabase.auth.getUser());
-      
-      // First, let's check if we can access the current user
-      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error('Error getting current user:', userError);
-        return { error: 'Authentication error' };
-      }
-      
-      console.log('Current authenticated user:', currentUser);
-      
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .insert({
@@ -96,16 +78,8 @@ export const useGroups = () => {
 
       if (groupError) {
         console.error('Error creating group:', groupError);
-        console.error('Group error details:', {
-          code: groupError.code,
-          message: groupError.message,
-          details: groupError.details,
-          hint: groupError.hint
-        });
         return { error: groupError.message };
       }
-
-      console.log('Group created successfully:', groupData);
 
       // Add creator as admin member
       const { error: memberError } = await supabase
@@ -118,17 +92,9 @@ export const useGroups = () => {
 
       if (memberError) {
         console.error('Error adding member:', memberError);
-        console.error('Member error details:', {
-          code: memberError.code,
-          message: memberError.message,
-          details: memberError.details,
-          hint: memberError.hint
-        });
         return { error: memberError.message };
       }
 
-      console.log('Member added successfully');
-      
       await fetchGroups();
       return { data: groupData, error: null };
     } catch (error) {
@@ -141,8 +107,6 @@ export const useGroups = () => {
     if (!user) return { error: 'User not authenticated' };
 
     try {
-      console.log('Joining group with invite code:', inviteCode);
-      
       // Find group by invite code
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
@@ -155,8 +119,6 @@ export const useGroups = () => {
         return { error: 'Código de convite inválido' };
       }
 
-      console.log('Found group:', groupData);
-
       // Check if user is already a member
       const { data: existingMember } = await supabase
         .from('group_members')
@@ -166,7 +128,6 @@ export const useGroups = () => {
         .single();
 
       if (existingMember) {
-        console.log('User is already a member');
         return { error: 'Você já faz parte deste grupo' };
       }
 
@@ -184,8 +145,6 @@ export const useGroups = () => {
         return { error: memberError.message };
       }
 
-      console.log('Successfully joined group');
-      
       await fetchGroups();
       return { data: groupData, error: null };
     } catch (error) {
