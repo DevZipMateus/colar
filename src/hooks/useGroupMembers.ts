@@ -32,7 +32,7 @@ export const useGroupMembers = (groupId: string | null) => {
         .from('group_members')
         .select(`
           *,
-          profiles!inner (
+          profiles (
             name,
             email,
             avatar_url
