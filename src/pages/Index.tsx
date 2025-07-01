@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGroups } from '@/hooks/useGroups';
+import { useInviteHandler } from '@/hooks/useInviteHandler';
 import Navigation from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
 import Finances from '@/components/Finances';
@@ -14,6 +15,9 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { user, loading } = useAuth();
   const { groups, currentGroup } = useGroups();
+  
+  // Handle invite links from URL
+  useInviteHandler();
 
   if (loading) {
     return (

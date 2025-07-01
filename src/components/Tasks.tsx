@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, CheckSquare, Clock, User, Calendar, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
 import { useTasks } from '@/hooks/useTasks';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import InviteLink from './InviteLink';
 
 interface Group {
   id: string;
@@ -40,11 +40,6 @@ const Tasks = ({ currentGroup }: TasksProps) => {
 
   const handleDeleteTask = async (taskId: string) => {
     await deleteTask(taskId);
-  };
-
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(currentGroup.invite_code);
-    // Toast notification would go here
   };
 
   const getMemberById = (memberId: string) => {
@@ -345,37 +340,17 @@ const Tasks = ({ currentGroup }: TasksProps) => {
       {/* Modal para convidar usuários */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-colar-navy mb-4">Convidar para o Grupo</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Código de Convite</label>
-                <div className="flex items-center space-x-2">
-                  <input 
-                    type="text" 
-                    value={currentGroup.invite_code}
-                    readOnly
-                    className="flex-1 p-3 border border-gray-200 rounded-lg bg-gray-50 text-center font-mono"
-                  />
-                  <Button
-                    onClick={copyInviteCode}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Copy size={16} />
-                  </Button>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  Compartilhe este código com pessoas que você quer convidar para o grupo.
-                </p>
-              </div>
-              <Button 
-                onClick={() => setShowInviteModal(false)}
-                className="w-full bg-colar-navy hover:bg-colar-navy-dark text-white"
-              >
-                Fechar
-              </Button>
-            </div>
+            
+            <InviteLink inviteCode={currentGroup.invite_code} groupName={currentGroup.name} />
+            
+            <Button 
+              onClick={() => setShowInviteModal(false)}
+              className="w-full mt-4 bg-colar-navy hover:bg-colar-navy-dark text-white"
+            >
+              Fechar
+            </Button>
           </div>
         </div>
       )}
