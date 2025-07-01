@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
-import { Plus, CheckSquare, Clock, User, Calendar, Copy } from 'lucide-react';
+import { Plus, CheckSquare, Clock, User, Calendar, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
+import { useTasks } from '@/hooks/useTasks';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface Group {
   id: string;
@@ -21,20 +24,22 @@ interface TasksProps {
 const Tasks = ({ currentGroup }: TasksProps) => {
   const [showAddTask, setShowAddTask] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [tasks, setTasks] = useState([
-    { id: 1, title: 'Tirar o lixo', responsible: 'João', responsibleId: '1', dueDate: '28/06/2025', completed: false, priority: 'high' },
-    { id: 2, title: 'Limpar banheiro', responsible: 'Maria', responsibleId: '2', dueDate: '28/06/2025', completed: false, priority: 'high' },
-    { id: 3, title: 'Aspirar a sala', responsible: 'João', responsibleId: '1', dueDate: '29/06/2025', completed: false, priority: 'medium' },
-    { id: 4, title: 'Lavar roupa', responsible: 'Maria', responsibleId: '2', dueDate: '30/06/2025', completed: false, priority: 'low' },
-    { id: 5, title: 'Lavar louça', responsible: 'Maria', responsibleId: '2', dueDate: '27/06/2025', completed: true, priority: 'medium' },
-  ]);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    assigned_to: '',
+    due_date: '',
+    priority: 'medium',
+  });
 
   const { members, loading: membersLoading } = useGroupMembers(currentGroup.id);
+  const { tasks, loading: tasksLoading, createTask, deleteTask, toggleTaskCompletion } = useTasks(currentGroup.id);
 
-  const toggleTask = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  const handleToggleTask = async (taskId: string, completed: boolean) => {
+    await toggleTaskCompletion(taskId, !completed);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteTask(taskId);
   };
 
   const copyInviteCode = () => {
@@ -44,6 +49,22 @@ const Tasks = ({ currentGroup }: TasksProps) => {
 
   const getMemberById = (memberId: string) => {
     return members.find(member => member.user_id === memberId);
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim()) return;
+
+    const success = await createTask({
+      title: newTask.title,
+      assigned_to: newTask.assigned_to || null,
+      due_date: newTask.due_date || null,
+      group_id: currentGroup.id,
+    });
+
+    if (success) {
+      setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'medium' });
+      setShowAddTask(false);
+    }
   };
 
   const pendingTasks = tasks.filter(task => !task.completed);
@@ -70,6 +91,19 @@ const Tasks = ({ currentGroup }: TasksProps) => {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Sem prazo';
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  if (tasksLoading) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center">
+        <div className="text-xl font-bold text-colar-navy">Carregando tarefas...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
@@ -156,37 +190,64 @@ const Tasks = ({ currentGroup }: TasksProps) => {
         <CardContent>
           <div className="space-y-3">
             {pendingTasks.map((task) => {
-              const member = getMemberById(task.responsibleId);
+              const member = getMemberById(task.assigned_to || '');
               return (
                 <div 
                   key={task.id} 
-                  className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getPriorityColor(task.priority)}`}
+                  className="p-4 rounded-lg border-2 transition-all hover:shadow-md border-gray-200 bg-gray-50"
                 >
                   <div className="flex items-center space-x-3">
                     <input 
                       type="checkbox" 
                       checked={task.completed}
-                      onChange={() => toggleTask(task.id)}
+                      onChange={() => handleToggleTask(task.id, task.completed)}
                       className="w-5 h-5 rounded border-gray-300 text-colar-navy focus:ring-colar-navy"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-colar-navy">{task.title}</h3>
-                        <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-medium text-colar-navy">{task.title}</h3>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+                              <Trash2 size={16} />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir Tarefa</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir a tarefa "{task.title}"? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                       <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Avatar className="w-4 h-4">
-                            <AvatarImage src={member?.profiles?.avatar_url || ''} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(member?.profiles?.name || task.responsible)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{member?.profiles?.name || task.responsible}</span>
-                        </div>
+                        {task.assigned_to && (
+                          <div className="flex items-center space-x-1">
+                            <Avatar className="w-4 h-4">
+                              <AvatarImage src={member?.profiles?.avatar_url || ''} />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(member?.profiles?.name || 'U')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{member?.profiles?.name || 'Usuário'}</span>
+                          </div>
+                        )}
                         <div className="flex items-center space-x-1">
                           <Calendar size={14} />
-                          <span>{task.dueDate}</span>
+                          <span>{formatDate(task.due_date)}</span>
                         </div>
                       </div>
                     </div>
@@ -216,31 +277,59 @@ const Tasks = ({ currentGroup }: TasksProps) => {
           <CardContent>
             <div className="space-y-3">
               {completedTasks.map((task) => {
-                const member = getMemberById(task.responsibleId);
+                const member = getMemberById(task.assigned_to || '');
                 return (
                   <div key={task.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50 opacity-75">
                     <div className="flex items-center space-x-3">
                       <input 
                         type="checkbox" 
                         checked={task.completed}
-                        onChange={() => toggleTask(task.id)}
+                        onChange={() => handleToggleTask(task.id, task.completed)}
                         className="w-5 h-5 rounded border-gray-300 text-colar-orange focus:ring-colar-orange"
                       />
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-600 line-through">{task.title}</h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-gray-600 line-through">{task.title}</h3>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+                                <Trash2 size={16} />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir Tarefa</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir a tarefa "{task.title}"? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDeleteTask(task.id)}
+                                  className="bg-red-500 hover:bg-red-600"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                         <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
-                          <div className="flex items-center space-x-1">
-                            <Avatar className="w-4 h-4">
-                              <AvatarImage src={member?.profiles?.avatar_url || ''} />
-                              <AvatarFallback className="text-xs">
-                                {getInitials(member?.profiles?.name || task.responsible)}
-                              </AvatarFallback>
-                          </Avatar>
-                            <span>{member?.profiles?.name || task.responsible}</span>
-                          </div>
+                          {task.assigned_to && (
+                            <div className="flex items-center space-x-1">
+                              <Avatar className="w-4 h-4">
+                                <AvatarImage src={member?.profiles?.avatar_url || ''} />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(member?.profiles?.name || 'U')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{member?.profiles?.name || 'Usuário'}</span>
+                            </div>
+                          )}
                           <div className="flex items-center space-x-1">
                             <Calendar size={14} />
-                            <span>{task.dueDate}</span>
+                            <span>{formatDate(task.due_date)}</span>
                           </div>
                         </div>
                       </div>
@@ -300,10 +389,16 @@ const Tasks = ({ currentGroup }: TasksProps) => {
               <input 
                 type="text" 
                 placeholder="Nome da tarefa"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                 className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent"
               />
-              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent">
-                <option>Selecione o responsável</option>
+              <select 
+                value={newTask.assigned_to}
+                onChange={(e) => setNewTask({ ...newTask, assigned_to: e.target.value })}
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent"
+              >
+                <option value="">Selecione o responsável (opcional)</option>
                 {members.map((member) => (
                   <option key={member.id} value={member.user_id}>
                     {member.profiles?.name || member.profiles?.email || 'Usuário'}
@@ -312,14 +407,10 @@ const Tasks = ({ currentGroup }: TasksProps) => {
               </select>
               <input 
                 type="date" 
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
                 className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent"
               />
-              <select className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-navy focus:border-transparent">
-                <option>Prioridade</option>
-                <option value="high">Alta</option>
-                <option value="medium">Média</option>
-                <option value="low">Baixa</option>
-              </select>
               <div className="flex space-x-3">
                 <Button 
                   onClick={() => setShowAddTask(false)}
@@ -329,8 +420,9 @@ const Tasks = ({ currentGroup }: TasksProps) => {
                   Cancelar
                 </Button>
                 <Button 
-                  onClick={() => setShowAddTask(false)}
+                  onClick={handleCreateTask}
                   className="flex-1 bg-colar-navy hover:bg-colar-navy-dark text-white"
+                  disabled={!newTask.title.trim()}
                 >
                   Criar Tarefa
                 </Button>
