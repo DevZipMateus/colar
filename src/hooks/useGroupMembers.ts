@@ -13,7 +13,7 @@ interface GroupMember {
     name: string | null;
     email: string | null;
     avatar_url: string | null;
-  };
+  } | null;
 }
 
 export const useGroupMembers = (groupId: string | null) => {
@@ -45,6 +45,7 @@ export const useGroupMembers = (groupId: string | null) => {
         return;
       }
 
+      console.log('Fetched members data:', data);
       setMembers(data || []);
     } catch (error) {
       console.error('Error in fetchMembers:', error);
