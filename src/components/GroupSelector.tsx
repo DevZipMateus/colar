@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Users, LogOut } from 'lucide-react';
+import { Plus, Users, LogOut, ChevronDown } from 'lucide-react';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -195,39 +195,64 @@ const GroupSelector = () => {
   }
 
   return (
-    <div className="p-4 bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Users className="text-colar-orange" size={20} />
-          <select
-            value={currentGroup?.id || ''}
-            onChange={(e) => {
-              const selected = groups.find(g => g.id === e.target.value);
-              setCurrentGroup(selected || null);
-            }}
-            className="text-lg font-semibold text-colar-navy bg-transparent border-none focus:outline-none"
-          >
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center space-x-2">
-          {currentGroup && (
-            <div className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded">
-              Código: {currentGroup.invite_code}
+    <div className="bg-gradient-to-r from-colar-orange/5 to-colar-navy/5 border-b border-gray-100 shadow-sm">
+      <div className="px-4 md:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-center w-10 h-10 bg-colar-orange rounded-full shadow-md">
+              <Users className="text-white" size={20} />
             </div>
-          )}
-          <Button
-            onClick={handleSignOut}
-            variant="outline"
-            size="sm"
-          >
-            <LogOut size={16} />
-          </Button>
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <select
+                  value={currentGroup?.id || ''}
+                  onChange={(e) => {
+                    const selected = groups.find(g => g.id === e.target.value);
+                    setCurrentGroup(selected || null);
+                  }}
+                  className="text-xl font-bold text-colar-navy bg-transparent border-none focus:outline-none cursor-pointer appearance-none pr-2"
+                >
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={18} className="text-colar-navy/60" />
+              </div>
+              <p className="text-sm text-gray-600">
+                {groups.length} {groups.length === 1 ? 'grupo' : 'grupos'} • {currentGroup?.description || 'Sem descrição'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            {currentGroup && (
+              <div className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-white/70 backdrop-blur-sm rounded-lg border border-gray-200/50 shadow-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-gray-700">Código: {currentGroup.invite_code}</span>
+              </div>
+            )}
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              size="sm"
+              className="bg-white/70 backdrop-blur-sm border-gray-200/50 hover:bg-white/90 transition-all duration-200"
+            >
+              <LogOut size={16} />
+            </Button>
+          </div>
         </div>
+        
+        {/* Mobile code display */}
+        {currentGroup && (
+          <div className="sm:hidden mt-3 flex items-center justify-center">
+            <div className="flex items-center space-x-2 px-3 py-2 bg-white/70 backdrop-blur-sm rounded-lg border border-gray-200/50 shadow-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-gray-700">Código: {currentGroup.invite_code}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
