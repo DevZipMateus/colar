@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { DollarSign, CheckSquare, Package, TrendingUp, AlertCircle, ShoppingCart } from 'lucide-react';
+import InviteMembersModal from './InviteMembersModal';
 
 interface Group {
   id: string;
@@ -23,6 +23,14 @@ const Dashboard = ({ currentGroup }: DashboardProps) => {
           <h2 className="text-2xl md:text-3xl font-bold text-colar-navy">Olá! 👋</h2>
           <p className="text-gray-600 mt-1">Bem-vindo ao {currentGroup.name}</p>
         </div>
+        <div className="hidden md:block">
+          <InviteMembersModal currentGroup={currentGroup} />
+        </div>
+      </div>
+
+      {/* Mobile invite button */}
+      <div className="md:hidden">
+        <InviteMembersModal currentGroup={currentGroup} />
       </div>
 
       {/* Cards de Resumo */}
