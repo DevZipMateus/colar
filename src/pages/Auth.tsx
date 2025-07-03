@@ -1,10 +1,9 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { UserPlus } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,6 +14,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasPendingInvite, setHasPendingInvite] = useState(false);
   
   const { signIn, signUp, resetPassword, user } = useAuth();
   const navigate = useNavigate();
@@ -24,6 +24,15 @@ const Auth = () => {
       navigate('/');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    // Check for pending invite or invite in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteInUrl = urlParams.get('invite');
+    const pendingInvite = localStorage.getItem('pending_invite');
+    
+    setHasPendingInvite(Boolean(inviteInUrl || pendingInvite));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +92,9 @@ const Auth = () => {
 
   const getDescription = () => {
     if (isForgotPassword) return 'Digite seu email para receber instruções de recuperação';
+    if (hasPendingInvite) {
+      return isLogin ? 'Entre para participar do grupo' : 'Crie sua conta para participar do grupo';
+    }
     return isLogin ? 'Entre na sua conta' : 'Crie sua conta';
   };
 
@@ -100,6 +112,19 @@ const Auth = () => {
               CoLar
             </CardTitle>
           </div>
+          
+          {hasPendingInvite && (
+            <div className="mb-4 p-3 bg-colar-orange/10 border border-colar-orange/20 rounded-lg">
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                <UserPlus className="text-colar-orange" size={18} />
+                <span className="text-sm font-medium text-colar-orange">Convite Detectado</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Você será automaticamente adicionado ao grupo após fazer login ou criar sua conta.
+              </p>
+            </div>
+          )}
+          
           <p className="text-gray-600">
             {getDescription()}
           </p>

@@ -9,6 +9,7 @@ import Finances from '@/components/Finances';
 import Tasks from '@/components/Tasks';
 import Inventory from '@/components/Inventory';
 import GroupSelector from '@/components/GroupSelector';
+import PendingInviteNotification from '@/components/PendingInviteNotification';
 import Auth from './Auth';
 
 const Index = () => {
@@ -39,7 +40,12 @@ const Index = () => {
   }
 
   if (groups.length === 0 || !currentGroup) {
-    return <GroupSelector />;
+    return (
+      <>
+        <GroupSelector />
+        <PendingInviteNotification />
+      </>
+    );
   }
 
   const renderContent = () => {
@@ -68,6 +74,7 @@ const Index = () => {
           {renderContent()}
         </main>
       </div>
+      <PendingInviteNotification />
     </div>
   );
 };
