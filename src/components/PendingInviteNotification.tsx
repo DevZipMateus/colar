@@ -2,19 +2,27 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus, X, RefreshCw } from 'lucide-react';
+import { UserPlus, X, RefreshCw, AlertCircle, CheckCircle, Mail } from 'lucide-react';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useInviteHandler, InviteError } from '@/hooks/useInviteHandler';
 
 const PendingInviteNotification = () => {
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  
   const { joinGroup } = useGroups();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { 
+    retryPendingInvite, 
+    clearPendingInvite, 
+    processing, 
+    lastError, 
+    processInvite 
+  } = useInviteHandler();
 
   useEffect(() => {
     const checkPendingInvite = () => {
@@ -29,55 +37,64 @@ const PendingInviteNotification = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const processPendingInvite = async (code?: string) => {
+  const handleProcessInvite = async (code?: string) => {
     const inviteCode = code || pendingInvite;
     if (!inviteCode || !user) return;
 
-    setIsProcessing(true);
-    console.log('Processing invite code:', inviteCode);
-
-    try {
-      const result = await joinGroup(inviteCode);
-      
-      if (result.error) {
-        toast({
-          title: "Erro ao entrar no grupo",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Bem-vindo ao grupo!",
-          description: `Você foi adicionado ao grupo "${result.data?.name}" com sucesso.`,
-        });
-        localStorage.removeItem('pending_invite');
-        setPendingInvite(null);
-        setShowManualEntry(false);
-        setManualCode('');
-      }
-    } catch (error) {
-      console.error('Error processing invite:', error);
-      toast({
-        title: "Erro inesperado",
-        description: "Tente novamente em alguns instantes.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
+    const result = await processInvite(inviteCode);
+    
+    if (result.success) {
+      setPendingInvite(null);
+      setShowManualEntry(false);
+      setManualCode('');
     }
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualCode.trim()) {
-      processPendingInvite(manualCode.trim().toLowerCase());
+      handleProcessInvite(manualCode.trim().toLowerCase());
+    }
+  };
+
+  const handleRetry = async () => {
+    const result = await retryPendingInvite();
+    if (result.success) {
+      setPendingInvite(null);
+      setShowManualEntry(false);
     }
   };
 
   const dismissInvite = () => {
-    localStorage.removeItem('pending_invite');
+    clearPendingInvite();
     setPendingInvite(null);
     setShowManualEntry(false);
+  };
+
+  const getErrorIcon = (error: InviteError) => {
+    switch (error.type) {
+      case 'email_not_confirmed':
+        return <Mail className="text-yellow-600" size={16} />;
+      case 'already_member':
+        return <CheckCircle className="text-green-600" size={16} />;
+      case 'invalid_code':
+        return <AlertCircle className="text-red-600" size={16} />;
+      default:
+        return <AlertCircle className="text-red-600" size={16} />;
+    }
+  };
+
+  const getErrorColor = (error: InviteError) => {
+    switch (error.type) {
+      case 'email_not_confirmed':
+        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+      case 'already_member':
+        return 'bg-green-50 border-green-200 text-green-800';
+      case 'network_error':
+        return 'bg-blue-50 border-blue-200 text-blue-800';
+      default:
+        return 'bg-red-50 border-red-200 text-red-800';
+    }
   };
 
   if (!user || (!pendingInvite && !showManualEntry)) {
@@ -105,6 +122,21 @@ const PendingInviteNotification = () => {
             </Button>
           </div>
 
+          {/* Error Display */}
+          {lastError && (
+            <div className={`mb-3 p-2 rounded-lg border text-xs ${getErrorColor(lastError)}`}>
+              <div className="flex items-center space-x-2">
+                {getErrorIcon(lastError)}
+                <span className="font-medium">{lastError.message}</span>
+              </div>
+              {lastError.actionText && (
+                <div className="mt-1 text-xs opacity-80">
+                  {lastError.actionText}
+                </div>
+              )}
+            </div>
+          )}
+
           {pendingInvite && !showManualEntry ? (
             <>
               <p className="text-sm text-gray-600 mb-3">
@@ -112,12 +144,12 @@ const PendingInviteNotification = () => {
               </p>
               <div className="flex space-x-2">
                 <Button
-                  onClick={() => processPendingInvite()}
-                  disabled={isProcessing}
+                  onClick={() => handleProcessInvite()}
+                  disabled={processing}
                   className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
                   size="sm"
                 >
-                  {isProcessing ? (
+                  {processing ? (
                     <>
                       <RefreshCw size={14} className="mr-1 animate-spin" />
                       Entrando...
@@ -126,6 +158,18 @@ const PendingInviteNotification = () => {
                     'Entrar no Grupo'
                   )}
                 </Button>
+                
+                {lastError?.canRetry && (
+                  <Button
+                    onClick={handleRetry}
+                    disabled={processing}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw size={14} className={processing ? 'animate-spin' : ''} />
+                  </Button>
+                )}
+                
                 <Button
                   variant="outline"
                   size="sm"
@@ -151,11 +195,11 @@ const PendingInviteNotification = () => {
                 <div className="flex space-x-2">
                   <Button
                     type="submit"
-                    disabled={isProcessing || !manualCode.trim()}
+                    disabled={processing || !manualCode.trim()}
                     className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
                     size="sm"
                   >
-                    {isProcessing ? (
+                    {processing ? (
                       <>
                         <RefreshCw size={14} className="mr-1 animate-spin" />
                         Entrando...
@@ -178,6 +222,16 @@ const PendingInviteNotification = () => {
               </form>
             </>
           )}
+
+          {/* Help Text */}
+          <div className="mt-3 text-xs text-gray-500">
+            <p className="mb-1">💡 <strong>Dicas:</strong></p>
+            <ul className="space-y-1 text-xs">
+              <li>• Confirme seu email se ainda não confirmou</li>
+              <li>• Use a mesma conta que recebeu o convite</li>
+              <li>• Códigos são válidos por tempo limitado</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     </div>

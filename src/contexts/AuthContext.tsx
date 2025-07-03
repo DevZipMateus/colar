@@ -13,7 +13,6 @@ interface AuthContextType {
   signOut: () => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
-  processPendingInvite: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,11 +40,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Process pending invite when user signs in/up
+        // Show helpful messages for specific auth events
         if (event === 'SIGNED_IN' && session?.user) {
-          setTimeout(() => {
-            processPendingInvite();
-          }, 100);
+          const isNewUser = session.user.created_at === session.user.updated_at;
+          if (isNewUser) {
+            toast({
+              title: "Conta criada com sucesso!",
+              description: "Verifique seu email para confirmar a conta.",
+            });
+          }
+        }
+
+        if (event === 'USER_UPDATED' && session?.user) {
+          // User confirmed email
+          if (session.user.email_confirmed_at) {
+            toast({
+              title: "Email confirmado!",
+              description: "Agora você pode participar de grupos.",
+            });
+          }
         }
       }
     );
@@ -58,42 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  const processPendingInvite = async () => {
-    const pendingInvite = localStorage.getItem('pending_invite');
-    if (pendingInvite && user) {
-      console.log('Processing pending invite:', pendingInvite);
-      
-      try {
-        // Import dynamically to avoid circular dependency
-        const { useGroups } = await import('../hooks/useGroups');
-        const groups = useGroups();
-        
-        const result = await groups.joinGroup(pendingInvite);
-        
-        if (result.error) {
-          console.error('Error processing pending invite:', result.error);
-          toast({
-            title: "Erro ao processar convite",
-            description: result.error,
-            variant: "destructive",
-          });
-        } else {
-          console.log('Successfully processed pending invite');
-          toast({
-            title: "Bem-vindo ao grupo!",
-            description: `Você foi adicionado ao grupo "${result.data?.name}" com sucesso.`,
-          });
-        }
-      } catch (error) {
-        console.error('Error in processPendingInvite:', error);
-      } finally {
-        // Clear the pending invite
-        localStorage.removeItem('pending_invite');
-      }
-    }
-  };
+  }, [toast]);
 
   const signUp = async (email: string, password: string, name: string) => {
     // Store invite code if present in URL before signup
@@ -117,6 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     });
+    
     return { error };
   };
 
@@ -134,6 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email,
       password,
     });
+    
     return { error };
   };
 
@@ -169,7 +149,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signOut,
     resetPassword,
     updatePassword,
-    processPendingInvite,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
