@@ -22,6 +22,8 @@ export const useInviteHandler = () => {
   const parseError = (errorMessage: string): InviteError => {
     const message = errorMessage.toLowerCase();
     
+    console.log('🔍 Parsing error message:', errorMessage);
+    
     if (message.includes('código de convite inválido') || message.includes('invalid')) {
       return {
         type: 'invalid_code',
@@ -41,7 +43,7 @@ export const useInviteHandler = () => {
       };
     }
     
-    if (message.includes('email') && message.includes('confirm')) {
+    if (message.includes('email') && (message.includes('confirm') || message.includes('confirme'))) {
       return {
         type: 'email_not_confirmed',
         message: 'Confirme seu email antes de entrar no grupo',
@@ -70,7 +72,7 @@ export const useInviteHandler = () => {
 
   const processInvite = async (inviteCode: string, isRetry: boolean = false) => {
     if (!user) {
-      console.log('User not authenticated, storing invite for later');
+      console.log('👤 User not authenticated, storing invite for later');
       localStorage.setItem('pending_invite', inviteCode);
       
       toast({
@@ -80,10 +82,18 @@ export const useInviteHandler = () => {
       return { success: false, stored: true };
     }
 
+    console.log('🚀 Processing invite:', {
+      inviteCode,
+      isRetry,
+      userId: user.id,
+      userEmail: user.email,
+      emailConfirmed: user.email_confirmed_at
+    });
+
     setProcessing(true);
     setLastError(null);
     
-    console.log(`${isRetry ? 'Retrying' : 'Processing'} invite code:`, inviteCode);
+    console.log(`${isRetry ? '🔄 Retrying' : '🆕 Processing'} invite code:`, inviteCode);
 
     try {
       const result = await joinGroup(inviteCode);
@@ -92,7 +102,8 @@ export const useInviteHandler = () => {
         const errorInfo = parseError(result.error);
         setLastError(errorInfo);
         
-        console.error('Error joining group:', result.error);
+        console.error('❌ Error joining group:', result.error);
+        console.log('📋 Parsed error info:', errorInfo);
         
         toast({
           title: "Erro ao entrar no grupo",
@@ -102,7 +113,7 @@ export const useInviteHandler = () => {
         
         return { success: false, error: errorInfo };
       } else {
-        console.log('Successfully joined group');
+        console.log('✅ Successfully joined group:', result.data);
         
         toast({
           title: "Bem-vindo ao grupo!",
@@ -116,7 +127,7 @@ export const useInviteHandler = () => {
         return { success: true, data: result.data };
       }
     } catch (error) {
-      console.error('Unexpected error processing invite:', error);
+      console.error('💥 Unexpected error processing invite:', error);
       
       const errorInfo: InviteError = {
         type: 'network_error',
@@ -144,7 +155,10 @@ export const useInviteHandler = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const inviteCode = urlParams.get('invite');
 
+      console.log('🌐 Checking URL for invite code:', inviteCode);
+
       if (inviteCode) {
+        console.log('🔗 Found invite code in URL, clearing URL...');
         // Clear URL immediately
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('invite');
@@ -154,8 +168,10 @@ export const useInviteHandler = () => {
       } else {
         // Check for pending invite
         const pendingInvite = localStorage.getItem('pending_invite');
+        console.log('💾 Checking localStorage for pending invite:', pendingInvite);
+        
         if (pendingInvite && user) {
-          console.log('Processing pending invite from localStorage:', pendingInvite);
+          console.log('🔄 Processing pending invite from localStorage:', pendingInvite);
           await processInvite(pendingInvite);
         }
       }
@@ -163,6 +179,10 @@ export const useInviteHandler = () => {
 
     // Only run when user state is determined
     if (user !== undefined) {
+      console.log('👤 User state determined, handling invites...', {
+        hasUser: !!user,
+        userEmail: user?.email
+      });
       handleInviteFromUrl();
     }
   }, [user]);
@@ -170,13 +190,15 @@ export const useInviteHandler = () => {
   const retryPendingInvite = async () => {
     const pendingInvite = localStorage.getItem('pending_invite');
     if (pendingInvite && user) {
-      console.log('Manually retrying pending invite:', pendingInvite);
+      console.log('🔄 Manually retrying pending invite:', pendingInvite);
       return await processInvite(pendingInvite, true);
     }
+    console.log('❌ No pending invite found for retry');
     return { success: false, error: { type: 'unknown', message: 'Nenhum convite pendente encontrado' } };
   };
 
   const clearPendingInvite = () => {
+    console.log('🗑️ Clearing pending invite');
     localStorage.removeItem('pending_invite');
     setLastError(null);
   };

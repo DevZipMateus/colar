@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus, X, RefreshCw, AlertCircle, CheckCircle, Mail } from 'lucide-react';
-import { useGroups } from '@/hooks/useGroups';
+import { UserPlus, X, RefreshCw, AlertCircle, CheckCircle, Mail, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useInviteHandler, InviteError } from '@/hooks/useInviteHandler';
@@ -12,8 +11,8 @@ const PendingInviteNotification = () => {
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   
-  const { joinGroup } = useGroups();
   const { user } = useAuth();
   const { toast } = useToast();
   const { 
@@ -27,6 +26,7 @@ const PendingInviteNotification = () => {
   useEffect(() => {
     const checkPendingInvite = () => {
       const stored = localStorage.getItem('pending_invite');
+      console.log('🔍 Checking pending invite:', stored);
       setPendingInvite(stored);
     };
 
@@ -41,6 +41,7 @@ const PendingInviteNotification = () => {
     const inviteCode = code || pendingInvite;
     if (!inviteCode || !user) return;
 
+    console.log('🎯 Processing invite from notification:', inviteCode);
     const result = await processInvite(inviteCode);
     
     if (result.success) {
@@ -53,11 +54,13 @@ const PendingInviteNotification = () => {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualCode.trim()) {
+      console.log('📝 Manual invite code submitted:', manualCode.trim());
       handleProcessInvite(manualCode.trim().toLowerCase());
     }
   };
 
   const handleRetry = async () => {
+    console.log('🔄 Retry button clicked');
     const result = await retryPendingInvite();
     if (result.success) {
       setPendingInvite(null);
@@ -66,6 +69,7 @@ const PendingInviteNotification = () => {
   };
 
   const dismissInvite = () => {
+    console.log('❌ Dismissing invite notification');
     clearPendingInvite();
     setPendingInvite(null);
     setShowManualEntry(false);
@@ -112,15 +116,37 @@ const PendingInviteNotification = () => {
                 {pendingInvite ? 'Convite Pendente' : 'Entrar em Grupo'}
               </h3>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={dismissInvite}
-              className="h-6 w-6 p-0 hover:bg-red-100"
-            >
-              <X size={14} />
-            </Button>
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDebugInfo(!showDebugInfo)}
+                className="h-6 w-6 p-0 hover:bg-blue-100"
+                title="Informações de debug"
+              >
+                <Info size={12} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={dismissInvite}
+                className="h-6 w-6 p-0 hover:bg-red-100"
+              >
+                <X size={14} />
+              </Button>
+            </div>
           </div>
+
+          {/* Debug Information */}
+          {showDebugInfo && (
+            <div className="mb-3 p-2 bg-gray-50 rounded text-xs font-mono">
+              <div><strong>User ID:</strong> {user.id}</div>
+              <div><strong>Email:</strong> {user.email}</div>
+              <div><strong>Email Confirmed:</strong> {user.email_confirmed_at ? '✅' : '❌'}</div>
+              <div><strong>Pending Code:</strong> {pendingInvite || 'None'}</div>
+              <div><strong>Processing:</strong> {processing ? '🔄' : '⏸️'}</div>
+            </div>
+          )}
 
           {/* Error Display */}
           {lastError && (
@@ -230,6 +256,7 @@ const PendingInviteNotification = () => {
               <li>• Confirme seu email se ainda não confirmou</li>
               <li>• Use a mesma conta que recebeu o convite</li>
               <li>• Códigos são válidos por tempo limitado</li>
+              <li>• Se você criou o grupo, não precisa de convite</li>
             </ul>
           </div>
         </CardContent>

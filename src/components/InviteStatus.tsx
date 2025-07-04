@@ -2,8 +2,10 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mail, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, CheckCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface InviteStatusProps {
   onResendConfirmation?: () => void;
@@ -13,10 +15,62 @@ interface InviteStatusProps {
 
 const InviteStatus = ({ onResendConfirmation, onRetry, loading }: InviteStatusProps) => {
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  console.log('📧 InviteStatus - User email status:', {
+    user: user?.email,
+    emailConfirmed: user?.email_confirmed_at,
+    isConfirmed: user?.email_confirmed_at !== null
+  });
 
   if (!user) return null;
 
   const isEmailConfirmed = user.email_confirmed_at !== null;
+
+  const handleResendConfirmation = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Erro",
+        description: "Email não encontrado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('📤 Resending confirmation email to:', user.email);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        console.error('❌ Error resending confirmation:', error);
+        toast({
+          title: "Erro ao reenviar",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        console.log('✅ Confirmation email resent successfully');
+        toast({
+          title: "Email reenviado!",
+          description: "Verifique sua caixa de entrada para o novo email de confirmação.",
+        });
+      }
+    } catch (error) {
+      console.error('💥 Unexpected error resending confirmation:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao reenviar email",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Card className="border-blue-200 bg-blue-50">
@@ -47,27 +101,25 @@ const InviteStatus = ({ onResendConfirmation, onRetry, loading }: InviteStatusPr
                 </p>
                 
                 <div className="flex space-x-2">
-                  {onResendConfirmation && (
-                    <Button
-                      onClick={onResendConfirmation}
-                      disabled={loading}
-                      variant="outline"
-                      size="sm"
-                      className="text-blue-700 border-blue-300 hover:bg-blue-100"
-                    >
-                      {loading ? (
-                        <>
-                          <RefreshCw size={14} className="mr-1 animate-spin" />
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <Mail size={14} className="mr-1" />
-                          Reenviar Email
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <Button
+                    onClick={onResendConfirmation || handleResendConfirmation}
+                    disabled={loading}
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                  >
+                    {loading ? (
+                      <>
+                        <RefreshCw size={14} className="mr-1 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Mail size={14} className="mr-1" />
+                        Reenviar Email
+                      </>
+                    )}
+                  </Button>
                   
                   {onRetry && (
                     <Button
