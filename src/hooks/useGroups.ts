@@ -122,120 +122,119 @@ export const useGroups = () => {
       return { error: 'User not authenticated' };
     }
 
-    // Check email confirmation first
+    console.log('🚀 Starting joinGroup process with user:', {
+      id: user.id,
+      email: user.email,
+      emailConfirmed: !!user.email_confirmed_at,
+      confirmDate: user.email_confirmed_at
+    });
+
+    // Check email confirmation with more detailed logging
     if (!user.email_confirmed_at) {
-      console.log('❌ Email not confirmed for user:', user.email);
+      console.log('❌ Email not confirmed:', {
+        email: user.email,
+        confirmField: user.email_confirmed_at,
+        userObject: user
+      });
       return { error: 'Confirme seu email antes de entrar no grupo' };
     }
 
     try {
       const cleanInviteCode = inviteCode.trim().toLowerCase();
-      console.log('🔍 Attempting to join group with invite code:', cleanInviteCode);
-      console.log('👤 User details:', {
-        id: user.id,
-        email: user.email,
-        emailConfirmed: user.email_confirmed_at,
-        createdAt: user.created_at
-      });
+      console.log('🔍 Attempting to join group with cleaned invite code:', cleanInviteCode);
 
-      // Find group by invite code (case-insensitive)
-      console.log('🔎 Searching for group with invite code...');
-      const { data: groupData, error: groupError } = await supabase
+      // Step 1: Find group by invite code with multiple approaches
+      console.log('🔎 Step 1: Searching for group...');
+      
+      // Try direct query first (most reliable)
+      let { data: groupData, error: groupError } = await supabase
         .from('groups')
         .select('*')
-        .ilike('invite_code', cleanInviteCode)
-        .single();
+        .eq('invite_code', cleanInviteCode)
+        .maybeSingle();
 
       if (groupError) {
-        console.error('❌ Error finding group:', groupError);
-        console.log('🔍 Trying exact match fallback...');
-        
-        // Fallback to exact match
-        const { data: exactGroupData, error: exactGroupError } = await supabase
-          .from('groups')
-          .select('*')
-          .eq('invite_code', cleanInviteCode)
-          .single();
-          
-        if (exactGroupError) {
-          console.error('❌ Exact match also failed:', exactGroupError);
-          return { error: 'Código de convite inválido ou expirado' };
-        }
-        
-        console.log('✅ Found group with exact match:', exactGroupData);
-        // Use the exact match data
-        const foundGroup = exactGroupData;
-        
-        // Continue with membership check using exact match data
-        const { data: existingMember } = await supabase
-          .from('group_members')
-          .select('*')
-          .eq('group_id', foundGroup.id)
-          .eq('user_id', user.id)
-          .single();
-
-        if (existingMember) {
-          console.log('ℹ️ User is already a member:', existingMember);
-          return { error: 'Você já faz parte deste grupo' };
-        }
-
-        // Add user as member
-        console.log('➕ Adding user to group...');
-        const { error: memberError } = await supabase
-          .from('group_members')
-          .insert({
-            group_id: foundGroup.id,
-            user_id: user.id,
-            role: 'member',
-          });
-
-        if (memberError) {
-          console.error('❌ Error joining group:', memberError);
-          return { error: memberError.message };
-        }
-
-        console.log('✅ Successfully joined group');
-        await fetchGroups();
-        return { data: foundGroup, error: null };
+        console.error('❌ Error in direct search:', groupError);
+        return { error: 'Erro ao buscar grupo. Tente novamente.' };
       }
 
-      console.log('✅ Found group:', groupData);
+      // If not found, try case-insensitive search
+      if (!groupData) {
+        console.log('🔄 Direct search failed, trying case-insensitive...');
+        const { data: allGroups, error: allGroupsError } = await supabase
+          .from('groups')
+          .select('*');
 
-      // Check if user is already a member
-      console.log('🔍 Checking existing membership...');
-      const { data: existingMember } = await supabase
+        if (allGroupsError) {
+          console.error('❌ Error fetching all groups:', allGroupsError);
+          return { error: 'Erro ao buscar grupo. Tente novamente.' };
+        }
+
+        console.log('📋 All groups for comparison:', allGroups?.map(g => ({ id: g.id, code: g.invite_code })));
+        
+        groupData = allGroups?.find(g => 
+          g.invite_code.toLowerCase() === cleanInviteCode
+        ) || null;
+        
+        console.log('🎯 Found group with case-insensitive search:', groupData?.id);
+      }
+
+      if (!groupData) {
+        console.log('❌ No group found with invite code:', cleanInviteCode);
+        return { error: 'Código de convite inválido ou expirado' };
+      }
+
+      console.log('✅ Found group:', {
+        id: groupData.id,
+        name: groupData.name,
+        code: groupData.invite_code
+      });
+
+      // Step 2: Check if user is already a member
+      console.log('🔍 Step 2: Checking existing membership...');
+      const { data: existingMember, error: memberCheckError } = await supabase
         .from('group_members')
         .select('*')
         .eq('group_id', groupData.id)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (memberCheckError) {
+        console.error('❌ Error checking membership:', memberCheckError);
+        return { error: 'Erro ao verificar participação. Tente novamente.' };
+      }
 
       if (existingMember) {
         console.log('ℹ️ User is already a member:', existingMember);
         return { error: 'Você já faz parte deste grupo' };
       }
 
-      // Add user as member
-      console.log('➕ Adding user to group...');
-      const { error: memberError } = await supabase
+      // Step 3: Add user as member
+      console.log('➕ Step 3: Adding user to group...');
+      const { data: newMember, error: memberError } = await supabase
         .from('group_members')
         .insert({
           group_id: groupData.id,
           user_id: user.id,
           role: 'member',
-        });
+        })
+        .select()
+        .single();
 
       if (memberError) {
         console.error('❌ Error joining group:', memberError);
-        return { error: memberError.message };
+        return { error: 'Erro ao entrar no grupo. Tente novamente.' };
       }
 
-      console.log('✅ Successfully joined group');
+      console.log('✅ Successfully joined group:', newMember);
+      
+      // Step 4: Refresh groups
       await fetchGroups();
       return { data: groupData, error: null };
+
     } catch (error) {
-      console.error('💥 Error in joinGroup:', error);
-      return { error: 'Failed to join group' };
+      console.error('💥 Unexpected error in joinGroup:', error);
+      return { error: 'Erro inesperado. Tente novamente.' };
     }
   };
 

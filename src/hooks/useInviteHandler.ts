@@ -24,7 +24,7 @@ export const useInviteHandler = () => {
     
     console.log('🔍 Parsing error message:', errorMessage);
     
-    if (message.includes('código de convite inválido') || message.includes('invalid')) {
+    if (message.includes('código de convite inválido') || message.includes('expirado') || message.includes('invalid')) {
       return {
         type: 'invalid_code',
         message: 'Código de convite inválido ou expirado',
@@ -43,7 +43,7 @@ export const useInviteHandler = () => {
       };
     }
     
-    if (message.includes('email') && (message.includes('confirm') || message.includes('confirme'))) {
+    if (message.includes('confirme seu email') || message.includes('email')) {
       return {
         type: 'email_not_confirmed',
         message: 'Confirme seu email antes de entrar no grupo',
@@ -53,7 +53,7 @@ export const useInviteHandler = () => {
       };
     }
     
-    if (message.includes('network') || message.includes('fetch')) {
+    if (message.includes('erro') && (message.includes('buscar') || message.includes('verificar') || message.includes('entrar'))) {
       return {
         type: 'network_error',
         message: 'Erro de conexão. Tente novamente.',
@@ -87,7 +87,7 @@ export const useInviteHandler = () => {
       isRetry,
       userId: user.id,
       userEmail: user.email,
-      emailConfirmed: user.email_confirmed_at
+      emailConfirmed: !!user.email_confirmed_at
     });
 
     setProcessing(true);
@@ -158,7 +158,7 @@ export const useInviteHandler = () => {
       console.log('🌐 Checking URL for invite code:', inviteCode);
 
       if (inviteCode) {
-        console.log('🔗 Found invite code in URL, clearing URL...');
+        console.log('🔗 Found invite code in URL, processing...');
         // Clear URL immediately
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('invite');
@@ -170,7 +170,7 @@ export const useInviteHandler = () => {
         const pendingInvite = localStorage.getItem('pending_invite');
         console.log('💾 Checking localStorage for pending invite:', pendingInvite);
         
-        if (pendingInvite && user) {
+        if (pendingInvite && user && user.email_confirmed_at) {
           console.log('🔄 Processing pending invite from localStorage:', pendingInvite);
           await processInvite(pendingInvite);
         }
@@ -181,9 +181,14 @@ export const useInviteHandler = () => {
     if (user !== undefined) {
       console.log('👤 User state determined, handling invites...', {
         hasUser: !!user,
-        userEmail: user?.email
+        userEmail: user?.email,
+        emailConfirmed: !!user?.email_confirmed_at
       });
-      handleInviteFromUrl();
+      
+      // Add small delay to ensure all components are ready
+      setTimeout(() => {
+        handleInviteFromUrl();
+      }, 100);
     }
   }, [user]);
 

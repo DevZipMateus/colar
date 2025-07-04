@@ -31,28 +31,45 @@ const PendingInviteNotification = () => {
   useEffect(() => {
     const checkPendingInvite = () => {
       const stored = localStorage.getItem('pending_invite');
-      console.log('🔍 Checking pending invite:', stored);
-      setPendingInvite(stored);
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteFromUrl = urlParams.get('invite');
+      
+      const currentInvite = inviteFromUrl || stored;
+      
+      console.log('🔍 Checking pending invite:', {
+        stored,
+        fromUrl: inviteFromUrl,
+        current: currentInvite,
+        userReady: !!user,
+        emailConfirmed: !!user?.email_confirmed_at
+      });
+      
+      setPendingInvite(currentInvite);
     };
 
     checkPendingInvite();
     
-    // Check periodically in case it changes
-    const interval = setInterval(checkPendingInvite, 1000);
+    // Check more frequently initially, then less frequently
+    const interval = setInterval(checkPendingInvite, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const handleProcessInvite = async (code?: string) => {
     const inviteCode = code || pendingInvite;
-    if (!inviteCode || !user) return;
+    if (!inviteCode || !user) {
+      console.log('❌ Cannot process invite:', { inviteCode, hasUser: !!user });
+      return;
+    }
 
     console.log('🎯 Processing invite from notification:', inviteCode);
     const result = await processInvite(inviteCode);
     
     if (result.success) {
+      console.log('✅ Invite processed successfully, clearing state');
       setPendingInvite(null);
       setShowManualEntry(false);
       setManualCode('');
+      localStorage.removeItem('pending_invite');
     }
   };
 
@@ -78,8 +95,17 @@ const PendingInviteNotification = () => {
     clearPendingInvite();
     setPendingInvite(null);
     setShowManualEntry(false);
+    
+    // Also clear URL parameter if present
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('invite')) {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('invite');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
   };
 
+  // Don't show if no user or no invite
   if (!user || (!pendingInvite && !showManualEntry)) {
     return null;
   }
@@ -117,7 +143,7 @@ const PendingInviteNotification = () => {
           </div>
 
           {/* Debug Information */}
-          {showDebugInfo && (
+          {showDebugInfo && user && (
             <DebugInfoPanel 
               user={user} 
               pendingInvite={pendingInvite} 
