@@ -2,10 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus, X, RefreshCw, AlertCircle, CheckCircle, Mail, Info } from 'lucide-react';
+import { UserPlus, X, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useInviteHandler, InviteError } from '@/hooks/useInviteHandler';
+import { useInviteHandler } from '@/hooks/useInviteHandler';
+import DebugInfoPanel from '@/components/invite/DebugInfoPanel';
+import ErrorDisplay from '@/components/invite/ErrorDisplay';
+import InviteActions from '@/components/invite/InviteActions';
+import ManualInviteForm from '@/components/invite/ManualInviteForm';
+import HelpText from '@/components/invite/HelpText';
 
 const PendingInviteNotification = () => {
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
@@ -75,32 +80,6 @@ const PendingInviteNotification = () => {
     setShowManualEntry(false);
   };
 
-  const getErrorIcon = (error: InviteError) => {
-    switch (error.type) {
-      case 'email_not_confirmed':
-        return <Mail className="text-yellow-600" size={16} />;
-      case 'already_member':
-        return <CheckCircle className="text-green-600" size={16} />;
-      case 'invalid_code':
-        return <AlertCircle className="text-red-600" size={16} />;
-      default:
-        return <AlertCircle className="text-red-600" size={16} />;
-    }
-  };
-
-  const getErrorColor = (error: InviteError) => {
-    switch (error.type) {
-      case 'email_not_confirmed':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-      case 'already_member':
-        return 'bg-green-50 border-green-200 text-green-800';
-      case 'network_error':
-        return 'bg-blue-50 border-blue-200 text-blue-800';
-      default:
-        return 'bg-red-50 border-red-200 text-red-800';
-    }
-  };
-
   if (!user || (!pendingInvite && !showManualEntry)) {
     return null;
   }
@@ -139,126 +118,41 @@ const PendingInviteNotification = () => {
 
           {/* Debug Information */}
           {showDebugInfo && (
-            <div className="mb-3 p-2 bg-gray-50 rounded text-xs font-mono">
-              <div><strong>User ID:</strong> {user.id}</div>
-              <div><strong>Email:</strong> {user.email}</div>
-              <div><strong>Email Confirmed:</strong> {user.email_confirmed_at ? '✅' : '❌'}</div>
-              <div><strong>Pending Code:</strong> {pendingInvite || 'None'}</div>
-              <div><strong>Processing:</strong> {processing ? '🔄' : '⏸️'}</div>
-            </div>
+            <DebugInfoPanel 
+              user={user} 
+              pendingInvite={pendingInvite} 
+              processing={processing} 
+            />
           )}
 
           {/* Error Display */}
-          {lastError && (
-            <div className={`mb-3 p-2 rounded-lg border text-xs ${getErrorColor(lastError)}`}>
-              <div className="flex items-center space-x-2">
-                {getErrorIcon(lastError)}
-                <span className="font-medium">{lastError.message}</span>
-              </div>
-              {lastError.actionText && (
-                <div className="mt-1 text-xs opacity-80">
-                  {lastError.actionText}
-                </div>
-              )}
-            </div>
-          )}
+          {lastError && <ErrorDisplay error={lastError} />}
 
           {pendingInvite && !showManualEntry ? (
             <>
               <p className="text-sm text-gray-600 mb-3">
                 Você tem um convite para participar de um grupo.
               </p>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => handleProcessInvite()}
-                  disabled={processing}
-                  className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
-                  size="sm"
-                >
-                  {processing ? (
-                    <>
-                      <RefreshCw size={14} className="mr-1 animate-spin" />
-                      Entrando...
-                    </>
-                  ) : (
-                    'Entrar no Grupo'
-                  )}
-                </Button>
-                
-                {lastError?.canRetry && (
-                  <Button
-                    onClick={handleRetry}
-                    disabled={processing}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <RefreshCw size={14} className={processing ? 'animate-spin' : ''} />
-                  </Button>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowManualEntry(true)}
-                >
-                  Manual
-                </Button>
-              </div>
+              <InviteActions
+                processing={processing}
+                lastError={lastError}
+                onProcessInvite={() => handleProcessInvite()}
+                onRetry={handleRetry}
+                onShowManualEntry={() => setShowManualEntry(true)}
+              />
             </>
           ) : (
-            <>
-              <p className="text-sm text-gray-600 mb-3">
-                Digite o código do grupo para participar:
-              </p>
-              <form onSubmit={handleManualSubmit} className="space-y-2">
-                <input
-                  type="text"
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  placeholder="Código de convite"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-colar-orange focus:border-transparent"
-                />
-                <div className="flex space-x-2">
-                  <Button
-                    type="submit"
-                    disabled={processing || !manualCode.trim()}
-                    className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
-                    size="sm"
-                  >
-                    {processing ? (
-                      <>
-                        <RefreshCw size={14} className="mr-1 animate-spin" />
-                        Entrando...
-                      </>
-                    ) : (
-                      'Entrar'
-                    )}
-                  </Button>
-                  {pendingInvite && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowManualEntry(false)}
-                    >
-                      Voltar
-                    </Button>
-                  )}
-                </div>
-              </form>
-            </>
+            <ManualInviteForm
+              manualCode={manualCode}
+              processing={processing}
+              pendingInvite={pendingInvite}
+              onCodeChange={setManualCode}
+              onSubmit={handleManualSubmit}
+              onBack={pendingInvite ? () => setShowManualEntry(false) : undefined}
+            />
           )}
 
-          {/* Help Text */}
-          <div className="mt-3 text-xs text-gray-500">
-            <p className="mb-1">💡 <strong>Dicas:</strong></p>
-            <ul className="space-y-1 text-xs">
-              <li>• Confirme seu email se ainda não confirmou</li>
-              <li>• Use a mesma conta que recebeu o convite</li>
-              <li>• Códigos são válidos por tempo limitado</li>
-              <li>• Se você criou o grupo, não precisa de convite</li>
-            </ul>
-          </div>
+          <HelpText />
         </CardContent>
       </Card>
     </div>
