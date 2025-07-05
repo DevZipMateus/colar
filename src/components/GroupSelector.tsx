@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Users, LogOut, ChevronDown } from 'lucide-react';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/contexts/AuthContext';
+import GroupSettings from './GroupSettings';
 
 const GroupSelector = () => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -228,10 +229,13 @@ const GroupSelector = () => {
           
           <div className="flex items-center space-x-3">
             {currentGroup && (
-              <div className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-white/70 backdrop-blur-sm rounded-lg border border-gray-200/50 shadow-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium text-gray-700">Código: {currentGroup.invite_code}</span>
-              </div>
+              <>
+                <div className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-white/70 backdrop-blur-sm rounded-lg border border-gray-200/50 shadow-sm">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-gray-700">Código: {currentGroup.invite_code}</span>
+                </div>
+                <GroupSettings currentGroup={currentGroup} />
+              </>
             )}
             <Button
               onClick={handleSignOut}

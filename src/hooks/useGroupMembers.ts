@@ -1,7 +1,5 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface GroupMember {
   id: string;
@@ -10,29 +8,36 @@ interface GroupMember {
   role: string;
   joined_at: string;
   profiles?: {
+    id: string;
     name: string | null;
     email: string | null;
     avatar_url: string | null;
-  } | null;
+  };
 }
 
-export const useGroupMembers = (groupId: string | null) => {
+export const useGroupMembers = (groupId: string) => {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
 
   const fetchMembers = async () => {
-    if (!user || !groupId) {
+    if (!groupId) {
       setLoading(false);
       return;
     }
 
     try {
+      console.log('🔍 Fetching members for group:', groupId);
+      
       const { data, error } = await supabase
         .from('group_members')
         .select(`
-          *,
-          profiles (
+          id,
+          user_id,
+          group_id,
+          role,
+          joined_at,
+          profiles!group_members_user_id_profiles_fkey (
+            id,
             name,
             email,
             avatar_url
@@ -41,14 +46,14 @@ export const useGroupMembers = (groupId: string | null) => {
         .eq('group_id', groupId);
 
       if (error) {
-        console.error('Error fetching group members:', error);
+        console.error('❌ Error fetching group members:', error);
         return;
       }
 
-      console.log('Fetched members data:', data);
+      console.log('✅ Group members fetched:', data);
       setMembers(data || []);
     } catch (error) {
-      console.error('Error in fetchMembers:', error);
+      console.error('💥 Error in fetchMembers:', error);
     } finally {
       setLoading(false);
     }
@@ -56,7 +61,7 @@ export const useGroupMembers = (groupId: string | null) => {
 
   useEffect(() => {
     fetchMembers();
-  }, [user, groupId]);
+  }, [groupId]);
 
   return {
     members,
