@@ -49,6 +49,8 @@ export const useGroupMembers = (groupId: string) => {
       const userIds = membersData.map(member => member.user_id);
       
       // Fetch profiles for all members
+      console.log('👥 User IDs to fetch profiles for:', userIds);
+      
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, name, email, avatar_url')
@@ -59,11 +61,17 @@ export const useGroupMembers = (groupId: string) => {
         return;
       }
 
+      console.log('👤 Profiles fetched:', profilesData);
+
       // Combine the data
-      const membersWithProfiles = membersData.map(member => ({
-        ...member,
-        profiles: profilesData?.find(profile => profile.id === member.user_id) || null
-      }));
+      const membersWithProfiles = membersData.map(member => {
+        const profile = profilesData?.find(profile => profile.id === member.user_id);
+        console.log(`🔍 Member ${member.user_id} profile:`, profile);
+        return {
+          ...member,
+          profiles: profile || null
+        };
+      });
 
       console.log('✅ Group members with profiles fetched:', membersWithProfiles);
       setMembers(membersWithProfiles);
