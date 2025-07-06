@@ -45,7 +45,7 @@ const GroupSettings = ({ currentGroup }: GroupSettingsProps) => {
   
   const { user } = useAuth();
   const { fetchGroups } = useGroups();
-  const { members, loading: membersLoading, fetchMembers } = useGroupMembers(currentGroup.id);
+  const { members, loading: membersLoading, fetchMembers, removeMember } = useGroupMembers(currentGroup.id);
 
   const isGroupAdmin = currentGroup.created_by === user?.id;
 
@@ -102,6 +102,47 @@ const GroupSettings = ({ currentGroup }: GroupSettingsProps) => {
     setGroupName(currentGroup.name);
     setGroupDescription(currentGroup.description || '');
     setIsEditing(false);
+  };
+
+  const handleRemoveMember = async (member: any) => {
+    // Não pode remover a si mesmo
+    if (member.user_id === user?.id) {
+      toast({
+        title: "Ação não permitida",
+        description: "Você não pode remover a si mesmo do grupo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Não pode remover o criador do grupo
+    if (member.user_id === currentGroup.created_by) {
+      toast({
+        title: "Ação não permitida",
+        description: "O criador do grupo não pode ser removido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const memberName = member.profiles?.name || member.profiles?.email || 'este membro';
+    
+    if (confirm(`Tem certeza que deseja remover ${memberName} do grupo?`)) {
+      const result = await removeMember(member.id);
+      
+      if (result?.error) {
+        toast({
+          title: "Erro",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Membro removido",
+          description: `${memberName} foi removido do grupo com sucesso.`,
+        });
+      }
+    }
   };
 
   return (
@@ -212,21 +253,33 @@ const GroupSettings = ({ currentGroup }: GroupSettingsProps) => {
                             <p className="text-sm text-gray-500">{member.profiles?.email}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
-                            {member.role === 'admin' ? (
-                              <>
-                                <Shield size={12} className="mr-1" />
-                                Admin
-                              </>
-                            ) : (
-                              'Membro'
-                            )}
-                          </Badge>
-                          {member.user_id === currentGroup.created_by && (
-                            <Badge variant="outline">Criador</Badge>
-                          )}
-                        </div>
+                         <div className="flex items-center space-x-2">
+                           <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
+                             {member.role === 'admin' ? (
+                               <>
+                                 <Shield size={12} className="mr-1" />
+                                 Admin
+                               </>
+                             ) : (
+                               'Membro'
+                             )}
+                           </Badge>
+                           {member.user_id === currentGroup.created_by && (
+                             <Badge variant="outline">Criador</Badge>
+                           )}
+                           {isGroupAdmin && 
+                            member.user_id !== user?.id && 
+                            member.user_id !== currentGroup.created_by && (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => handleRemoveMember(member)}
+                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                             >
+                               <Trash2 size={14} />
+                             </Button>
+                           )}
+                         </div>
                       </div>
                     ))
                   )}

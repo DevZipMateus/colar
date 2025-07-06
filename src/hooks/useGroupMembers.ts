@@ -78,9 +78,33 @@ export const useGroupMembers = (groupId: string) => {
     fetchMembers();
   }, [groupId]);
 
+  const removeMember = async (memberId: string) => {
+    try {
+      console.log('🗑️ Removing member:', memberId);
+      
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('id', memberId);
+
+      if (error) {
+        console.error('❌ Error removing member:', error);
+        throw error;
+      }
+
+      console.log('✅ Member removed successfully');
+      await fetchMembers(); // Refresh the members list
+      return { success: true };
+    } catch (error) {
+      console.error('💥 Error in removeMember:', error);
+      return { error: 'Não foi possível remover o membro. Tente novamente.' };
+    }
+  };
+
   return {
     members,
     loading,
     fetchMembers,
+    removeMember,
   };
 };
