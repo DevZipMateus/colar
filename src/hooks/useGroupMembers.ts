@@ -36,7 +36,7 @@ export const useGroupMembers = (groupId: string) => {
           group_id,
           role,
           joined_at,
-          profiles!group_members_user_id_profiles_fkey (
+          profiles (
             id,
             name,
             email,
