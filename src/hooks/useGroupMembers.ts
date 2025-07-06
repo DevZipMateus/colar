@@ -28,30 +28,45 @@ export const useGroupMembers = (groupId: string) => {
     try {
       console.log('🔍 Fetching members for group:', groupId);
       
-      const { data, error } = await supabase
+      // First get group members
+      const { data: membersData, error: membersError } = await supabase
         .from('group_members')
-        .select(`
-          id,
-          user_id,
-          group_id,
-          role,
-          joined_at,
-          profiles (
-            id,
-            name,
-            email,
-            avatar_url
-          )
-        `)
+        .select('id, user_id, group_id, role, joined_at')
         .eq('group_id', groupId);
 
-      if (error) {
-        console.error('❌ Error fetching group members:', error);
+      if (membersError) {
+        console.error('❌ Error fetching group members:', membersError);
         return;
       }
 
-      console.log('✅ Group members fetched:', data);
-      setMembers(data || []);
+      if (!membersData || membersData.length === 0) {
+        console.log('✅ No group members found');
+        setMembers([]);
+        return;
+      }
+
+      // Get all user IDs to fetch profiles
+      const userIds = membersData.map(member => member.user_id);
+      
+      // Fetch profiles for all members
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('❌ Error fetching profiles:', profilesError);
+        return;
+      }
+
+      // Combine the data
+      const membersWithProfiles = membersData.map(member => ({
+        ...member,
+        profiles: profilesData?.find(profile => profile.id === member.user_id) || null
+      }));
+
+      console.log('✅ Group members with profiles fetched:', membersWithProfiles);
+      setMembers(membersWithProfiles);
     } catch (error) {
       console.error('💥 Error in fetchMembers:', error);
     } finally {
