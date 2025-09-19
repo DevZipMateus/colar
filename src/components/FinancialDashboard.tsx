@@ -10,6 +10,8 @@ import { CategoryManagement } from './CategoryManagement';
 import { CardManagement } from './CardManagement';
 import { ReportGenerator } from './ReportGenerator';
 import { FinancialOverview } from './FinancialOverview';
+import { MonthlyExpenseView } from './MonthlyExpenseView';
+import { ExpenseSplitter } from './ExpenseSplitter';
 
 interface FinancialDashboardProps {
   groupId: string;
@@ -93,8 +95,10 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Resumo Financeiro</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Resumo</TabsTrigger>
+          <TabsTrigger value="monthly">Controle Mensal</TabsTrigger>
+          <TabsTrigger value="splits">Divisão de Gastos</TabsTrigger>
           <TabsTrigger value="cards">Cartões</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
@@ -102,6 +106,14 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
 
         <TabsContent value="overview" className="space-y-4">
           <FinancialOverview groupId={groupId} />
+        </TabsContent>
+
+        <TabsContent value="monthly" className="space-y-4">
+          <MonthlyExpenseView groupId={groupId} />
+        </TabsContent>
+
+        <TabsContent value="splits" className="space-y-4">
+          <ExpenseSplitter groupId={groupId} />
         </TabsContent>
 
         <TabsContent value="cards" className="space-y-4">

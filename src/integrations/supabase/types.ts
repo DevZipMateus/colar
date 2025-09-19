@@ -88,6 +88,39 @@ export type Database = {
           },
         ]
       }
+      expense_splits: {
+        Row: {
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          split_name: string
+          total_amount: number
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          split_name: string
+          total_amount: number
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          split_name?: string
+          total_amount?: number
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
@@ -291,6 +324,54 @@ export type Database = {
         }
         Relationships: []
       }
+      installment_tracking: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          due_month: number
+          due_year: number
+          group_id: string
+          id: string
+          installment_number: number
+          is_paid: boolean | null
+          paid_at: string | null
+          total_installments: number
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          due_month: number
+          due_year: number
+          group_id: string
+          id?: string
+          installment_number: number
+          is_paid?: boolean | null
+          paid_at?: string | null
+          total_installments: number
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          due_month?: number
+          due_year?: number
+          group_id?: string
+          id?: string
+          installment_number?: number
+          is_paid?: boolean | null
+          paid_at?: string | null
+          total_installments?: number
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           category: string | null
@@ -359,6 +440,42 @@ export type Database = {
           id?: string
           name?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      split_payments: {
+        Row: {
+          amount_owed: number
+          amount_paid: number | null
+          created_at: string
+          id: string
+          is_settled: boolean | null
+          settled_at: string | null
+          split_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_owed: number
+          amount_paid?: number | null
+          created_at?: string
+          id?: string
+          is_settled?: boolean | null
+          settled_at?: string | null
+          split_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_owed?: number
+          amount_paid?: number | null
+          created_at?: string
+          id?: string
+          is_settled?: boolean | null
+          settled_at?: string | null
+          split_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

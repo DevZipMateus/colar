@@ -181,22 +181,34 @@ export const useFinancialData = (groupId: string | null) => {
     if (!user || !groupId) return false;
 
     try {
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('financial_transactions')
         .insert([{
           ...transactionData,
           group_id: groupId,
           created_by: user.id
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // If it's a credit card transaction with installments, create installment tracking
+      if (transactionData.card_type === 'credit' && transactionData.installments && transactionData.installments > 1) {
+        const transactionDate = new Date(transactionData.date);
+        const startMonth = transactionDate.getMonth() + 1;
+        const startYear = transactionDate.getFullYear();
+        
+        // This would be handled by the component that calls this function
+        // by importing and using the installment tracking hook
+      }
 
       await fetchTransactions();
       toast({
         title: "Transação adicionada",
         description: "A transação foi adicionada com sucesso.",
       });
-      return true;
+      return { success: true, data };
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast({
@@ -204,7 +216,7 @@ export const useFinancialData = (groupId: string | null) => {
         description: "Não foi possível adicionar a transação.",
         variant: "destructive",
       });
-      return false;
+      return { success: false, data: null };
     }
   };
 

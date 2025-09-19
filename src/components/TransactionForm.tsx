@@ -11,6 +11,7 @@ import { CalendarIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
+import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 
 interface TransactionFormProps {
   groupId: string;
@@ -20,6 +21,7 @@ interface TransactionFormProps {
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClose, onSuccess }) => {
   const { addTransaction } = useFinancialData(groupId);
+  const { createInstallments } = useInstallmentTracking(groupId);
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -55,37 +57,32 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
       const amount = parseFloat(formData.amount.replace(',', '.'));
       const installments = formData.installments ? parseInt(formData.installments) : undefined;
 
-      if (installments && installments > 1) {
-        // Create multiple transactions for installments
-        const installmentAmount = amount / installments;
-        for (let i = 1; i <= installments; i++) {
-          const installmentDate = new Date(formData.date);
-          installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+      // Create the main transaction
+      const result = await addTransaction({
+        group_id: groupId,
+        description: formData.description,
+        amount,
+        date: formData.date.toISOString().split('T')[0],
+        category: formData.category,
+        card_name: formData.card_name,
+        card_type: formData.card_type,
+        installments,
+        is_recurring: formData.is_recurring,
+      });
 
-          await addTransaction({
-            group_id: groupId,
-            description: `${formData.description} (${i}/${installments})`,
-            amount: installmentAmount,
-            date: installmentDate.toISOString().split('T')[0],
-            category: formData.category,
-            card_name: formData.card_name,
-            card_type: formData.card_type,
-            installments,
-            installment_number: i,
-            is_recurring: formData.is_recurring,
-          });
-        }
-      } else {
-        await addTransaction({
-          group_id: groupId,
-          description: formData.description,
+      // If it's a credit card transaction with installments, create installment tracking
+      if (result && typeof result === 'object' && result.success && result.data && formData.card_type === 'credit' && installments && installments > 1) {
+        const transactionDate = new Date(formData.date);
+        const startMonth = transactionDate.getMonth() + 1;
+        const startYear = transactionDate.getFullYear();
+        
+        await createInstallments(
+          result.data.id,
           amount,
-          date: formData.date.toISOString().split('T')[0],
-          category: formData.category,
-          card_name: formData.card_name,
-          card_type: formData.card_type,
-          is_recurring: formData.is_recurring,
-        });
+          installments,
+          startMonth,
+          startYear
+        );
       }
 
       onSuccess();
