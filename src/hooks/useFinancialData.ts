@@ -60,7 +60,7 @@ export const useFinancialData = (groupId: string | null) => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('financial_transactions')
         .select('*')
         .eq('group_id', groupId)
@@ -68,8 +68,8 @@ export const useFinancialData = (groupId: string | null) => {
 
       if (error) throw error;
 
-      setTransactions(data || []);
-      calculateSummary(data || []);
+      setTransactions((data as Transaction[]) || []);
+      calculateSummary((data as Transaction[]) || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -162,7 +162,7 @@ export const useFinancialData = (groupId: string | null) => {
     if (!user || !groupId) return false;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('financial_transactions')
         .insert([{
           ...transactionData,

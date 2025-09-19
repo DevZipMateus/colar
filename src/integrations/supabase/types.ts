@@ -102,6 +102,57 @@ export type Database = {
           },
         ]
       }
+      financial_transactions: {
+        Row: {
+          amount: number
+          card_name: string
+          card_type: string
+          category: string
+          created_at: string
+          created_by: string
+          date: string
+          description: string
+          group_id: string
+          id: string
+          installment_number: number | null
+          installments: number | null
+          is_recurring: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          card_name: string
+          card_type: string
+          category: string
+          created_at?: string
+          created_by: string
+          date: string
+          description: string
+          group_id: string
+          id?: string
+          installment_number?: number | null
+          installments?: number | null
+          is_recurring?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          card_name?: string
+          card_type?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string
+          group_id?: string
+          id?: string
+          installment_number?: number | null
+          installments?: number | null
+          is_recurring?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
