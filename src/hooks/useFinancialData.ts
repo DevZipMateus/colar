@@ -43,6 +43,9 @@ export interface FinancialSummary {
   totalFixed: number;
   totalCredit: number;
   totalDebit: number;
+  fixedExpenses: number;
+  creditCardExpenses: number;
+  debitExpenses: number;
   categories: CategorySummary[];
   cards: CardSummary[];
   topCategories: CategorySummary[];
@@ -93,16 +96,29 @@ export const useFinancialData = (groupId: string | null) => {
     });
 
     // Calculate totals
-    const totalExpenses = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = monthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const totalCredit = monthTransactions
       .filter(t => t.card_type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const totalDebit = monthTransactions
       .filter(t => t.card_type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const totalFixed = monthTransactions
       .filter(t => t.is_recurring)
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    // Calculate specific expense categories for the new breakdown
+    const fixedExpenses = monthTransactions
+      .filter(t => ['Aluguel', 'Contas', 'Assinaturas'].includes(t.category))
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const creditCardExpenses = monthTransactions
+      .filter(t => t.card_type === 'credit')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const debitExpenses = monthTransactions
+      .filter(t => t.card_type === 'debit')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
     // Group by categories
     const categoryMap = new Map<string, Transaction[]>();
@@ -113,7 +129,7 @@ export const useFinancialData = (groupId: string | null) => {
     });
 
     const categories: CategorySummary[] = Array.from(categoryMap.entries()).map(([name, transactions]) => {
-      const total = transactions.reduce((sum, t) => sum + t.amount, 0);
+      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       return {
         name,
         total,
@@ -131,7 +147,7 @@ export const useFinancialData = (groupId: string | null) => {
     });
 
     const cards: CardSummary[] = Array.from(cardMap.entries()).map(([name, transactions]) => {
-      const total = transactions.reduce((sum, t) => sum + t.amount, 0);
+      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const type = transactions[0]?.card_type || 'credit';
       return {
         name,
@@ -149,6 +165,9 @@ export const useFinancialData = (groupId: string | null) => {
       totalFixed,
       totalCredit,
       totalDebit,
+      fixedExpenses,
+      creditCardExpenses,
+      debitExpenses,
       categories,
       cards,
       topCategories: categories.slice(0, 3),

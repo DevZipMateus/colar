@@ -258,6 +258,39 @@ export type Database = {
         }
         Relationships: []
       }
+      income_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          date: string
+          description: string
+          group_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          date?: string
+          description: string
+          group_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string
+          group_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           category: string | null
