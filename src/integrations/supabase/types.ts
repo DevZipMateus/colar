@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      card_configurations: {
+        Row: {
+          card_name: string
+          card_type: string
+          closing_day: number | null
+          created_at: string
+          created_by: string
+          due_day: number | null
+          group_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          card_name: string
+          card_type: string
+          closing_day?: number | null
+          created_at?: string
+          created_by: string
+          due_day?: number | null
+          group_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          card_name?: string
+          card_type?: string
+          closing_day?: number | null
+          created_at?: string
+          created_by?: string
+          due_day?: number | null
+          group_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expense_categories: {
         Row: {
           color: string

@@ -31,6 +31,74 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const { addTransaction } = useFinancialData(groupId);
 
+  const parseCSVContent = (content: string): ParsedTransaction[] => {
+    const lines = content.split('\n');
+    const transactions: ParsedTransaction[] = [];
+    let currentSection = '';
+    let currentCardName = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Check if this is a section header (e.g., "FIXOS", "Cartão Nubank")
+      if (line.includes('FIXOS') || line.includes('Cartão') || line.includes('Card') || 
+          (!line.includes(',') && !line.includes('Nome'))) {
+        currentSection = line;
+        if (line.includes('Cartão') || line.includes('Card')) {
+          currentCardName = line.replace('Cartão', '').replace('Card', '').trim();
+        } else if (line.includes('FIXOS')) {
+          currentCardName = 'FIXOS';
+        }
+        continue;
+      }
+
+      // Skip header lines
+      if (line.includes('Nome,') || line.includes('Descrição,')) continue;
+
+      // Parse transaction line
+      const columns = parseCSVLine(line);
+      if (columns.length < 5) continue;
+
+      const [nome, parcela, data, categoria, valor, tipo] = columns;
+      
+      if (!nome.trim() || !valor.trim()) continue;
+
+      const amount = parseAmount(valor);
+      if (amount <= 0) continue;
+
+      // Determine card name and type
+      let cardName = currentCardName || tipo?.trim() || 'Outros';
+      let cardType: 'credit' | 'debit' = 'credit';
+
+      // Map specific card names from the CSV format
+      if (currentSection.includes('FIXOS') || tipo?.toLowerCase().includes('débito')) {
+        cardType = 'debit';
+        if (tipo?.toLowerCase().includes('débito')) {
+          cardName = 'Débito';
+        }
+      } else if (currentSection.includes('Nubank')) {
+        cardName = 'Nubank';
+      } else if (currentSection.includes('Magalu') || currentSection.includes('Magazine')) {
+        cardName = 'Magalu';
+      }
+
+      const installmentInfo = parseInstallments(parcela);
+      
+      transactions.push({
+        description: nome.trim(),
+        amount,
+        date: parseDate(data),
+        category: categoria?.trim() || 'Outros',
+        card_name: cardName,
+        card_type: cardType,
+        ...installmentInfo
+      });
+    }
+
+    return transactions;
+  };
+
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
     let current = '';
@@ -122,38 +190,10 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
 
   const previewCSV = async (file: File) => {
     const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
-    const parsedTransactions: ParsedTransaction[] = [];
-
-    // Skip header and empty lines
-    for (let i = 1; i < Math.min(lines.length, 11); i++) { // Preview first 10 transactions
-      const line = lines[i];
-      if (!line.trim()) continue;
-
-      const columns = parseCSVLine(line);
-      if (columns.length < 5) continue;
-
-      const [nome, parcela, data, categoria, valor, tipo] = columns;
-      
-      if (!nome.trim() || !valor.trim()) continue;
-
-      const amount = parseAmount(valor);
-      if (amount <= 0) continue;
-
-      const installmentInfo = parseInstallments(parcela);
-      
-      parsedTransactions.push({
-        description: nome.trim(),
-        amount,
-        date: parseDate(data),
-        category: categoria.trim() || 'Outros',
-        card_name: tipo.trim() || 'Cartão',
-        card_type: inferCardType(tipo, tipo),
-        ...installmentInfo
-      });
-    }
-
-    setPreview(parsedTransactions);
+    const allTransactions = parseCSVContent(text);
+    
+    // Preview first 10 transactions
+    setPreview(allTransactions.slice(0, 10));
   };
 
   const handleImport = async () => {
@@ -164,36 +204,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const transactions: ParsedTransaction[] = [];
-
-      // Parse all transactions
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-
-        const columns = parseCSVLine(line);
-        if (columns.length < 5) continue;
-
-        const [nome, parcela, data, categoria, valor, tipo] = columns;
-        
-        if (!nome.trim() || !valor.trim()) continue;
-
-        const amount = parseAmount(valor);
-        if (amount <= 0) continue;
-
-        const installmentInfo = parseInstallments(parcela);
-        
-        transactions.push({
-          description: nome.trim(),
-          amount,
-          date: parseDate(data),
-          category: categoria.trim() || 'Outros',
-          card_name: tipo.trim() || 'Cartão',
-          card_type: inferCardType(tipo, tipo),
-          ...installmentInfo
-        });
-      }
+      const transactions = parseCSVContent(text);
 
       // Import transactions
       for (let i = 0; i < transactions.length; i++) {
@@ -320,10 +331,20 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
           <Button
             variant="outline"
             onClick={() => {
-              const csvContent = `Nome,Parcela,Data,Categoria,Valor,Tipo
-Supermercado,,"01/01",Mercado,"R$ 150,00",Débito
-Restaurante,,"02/01",Alimentação,"R$ 45,50",Crédito
-Notebook,2/12,"03/01",Eletrônicos,"R$ 250,00",Nubank`;
+              const csvContent = `FIXOS
+Nome,Parcela,Data,Categoria,Valor,Tipo
+Crunchyroll(Dividido),,Crédito,Assinaturas,"R$ 20,00",Crédito
+Internet nio,,Débito,Assinaturas,"R$ 75,00",Débito
+
+Cartão Nubank
+Nome,Parcela,Data,Categoria,Valor,Tipo
+Aspirador de pó Carrefour,3/15,19/07,Necessidades,"R$ 16,00",
+Studio Asaphoto,2/12,13/07,Presentes,"R$ 73,32",
+
+Cartão Magalu
+Nome,Parcela,Data,Categoria,Valor,Tipo
+Carrefour (multiprocessador),3/5,11/07,Eletrônicos,"R$ 26,71",
+Bolsa Maternidade,2/4,17/08,Necessidades,"R$ 47,49",`;
               
               const blob = new Blob([csvContent], { type: 'text/csv' });
               const url = URL.createObjectURL(blob);
