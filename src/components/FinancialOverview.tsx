@@ -22,13 +22,17 @@ export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
     }).format(value);
   };
 
-  const totalIncome = getTotalIncome();
-  const totalExpenses = summary.totalExpenses;
-  const balance = totalIncome - totalExpenses;
-
   if (financialLoading || incomeLoading) {
     return <div>Carregando...</div>;
   }
+
+  if (!summary) {
+    return <div>Nenhum dado financeiro encontrado.</div>;
+  }
+
+  const totalIncome = getTotalIncome();
+  const totalExpenses = summary.totalExpenses;
+  const balance = totalIncome - totalExpenses;
 
   return (
     <div className="space-y-6">
