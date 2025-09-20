@@ -11,8 +11,9 @@ import { useFinancialData } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ImportConfirmationModal } from './ImportConfirmationModal';
+import * as XLSX from 'xlsx';
 
-interface CSVImportProps {
+interface ExcelImportProps {
   groupId: string;
   onSuccess: () => void;
 }
@@ -63,85 +64,109 @@ interface FinancialOverview {
   };
 }
 
-export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
+export const ExcelImport: React.FC<ExcelImportProps> = ({ groupId, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [csvContent, setCsvContent] = useState<string>('');
+  const [excelContent, setExcelContent] = useState<string>('');
   const [financialOverview, setFinancialOverview] = useState<FinancialOverview | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
   const { addTransaction } = useFinancialData(groupId);
 
-  const parseCSVContent = (content: string): ParsedTransaction[] => {
-    const lines = content.split('\n');
-    const transactions: ParsedTransaction[] = [];
-    let currentSection = '';
-    let currentCardName = '';
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      // Check if this is a section header (e.g., "FIXOS", "Cartão Nubank")
-      if (line.includes('FIXOS') || line.includes('Cartão') || line.includes('Card') || 
-          (!line.includes(',') && !line.includes('Nome'))) {
-        currentSection = line;
-        if (line.includes('Cartão') || line.includes('Card')) {
-          currentCardName = line.replace('Cartão', '').replace('Card', '').trim();
-        } else if (line.includes('FIXOS')) {
-          currentCardName = 'FIXOS';
-        }
-        continue;
-      }
-
-      // Skip header lines
-      if (line.includes('Nome,') || line.includes('Descrição,')) continue;
-
-      // Parse transaction line
-      const columns = parseCSVLine(line);
-      if (columns.length < 5) continue;
-
-      const [nome, parcela, data, categoria, valor, tipo] = columns;
+  const parseExcelContent = (file: File): Promise<ParsedTransaction[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
       
-      if (!nome.trim() || !valor.trim()) continue;
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          
+          // Get the first worksheet
+          const worksheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[worksheetName];
+          
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          
+          const transactions: ParsedTransaction[] = [];
+          let currentSection = '';
+          let currentCardName = '';
 
-      const amount = parseAmount(valor);
-      if (amount <= 0) continue;
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || row.length === 0) continue;
 
-      // Determine card name and type
-      let cardName = currentCardName || tipo?.trim() || 'Outros';
-      let cardType: 'credit' | 'debit' = 'credit';
+            const line = row.join(',');
+            
+            // Check if this is a section header
+            if (line.includes('FIXOS') || line.includes('Cartão') || line.includes('Card') || 
+                (row.length === 1 && !line.includes('Nome'))) {
+              currentSection = line;
+              if (line.includes('Cartão') || line.includes('Card')) {
+                currentCardName = line.replace('Cartão', '').replace('Card', '').trim();
+              } else if (line.includes('FIXOS')) {
+                currentCardName = 'FIXOS';
+              }
+              continue;
+            }
 
-      // Map specific card names from the CSV format
-      if (currentSection.includes('FIXOS') || tipo?.toLowerCase().includes('débito')) {
-        cardType = 'debit';
-        if (tipo?.toLowerCase().includes('débito')) {
-          cardName = 'Débito';
+            // Skip header lines
+            if (line.includes('Nome') || line.includes('Descrição')) continue;
+
+            // Parse transaction row
+            if (row.length < 5) continue;
+
+            const [nome, parcela, data, categoria, valor, tipo] = row.map(cell => 
+              cell ? cell.toString().trim() : ''
+            );
+            
+            if (!nome || !valor) continue;
+
+            const amount = parseAmount(valor);
+            if (amount <= 0) continue;
+
+            // Determine card name and type
+            let cardName = currentCardName || tipo || 'Outros';
+            let cardType: 'credit' | 'debit' = 'credit';
+
+            if (currentSection.includes('FIXOS') || tipo?.toLowerCase().includes('débito')) {
+              cardType = 'debit';
+              if (tipo?.toLowerCase().includes('débito')) {
+                cardName = 'Débito';
+              }
+            } else if (currentSection.includes('Nubank')) {
+              cardName = 'Nubank';
+            } else if (currentSection.includes('Magalu') || currentSection.includes('Magazine')) {
+              cardName = 'Magalu';
+            }
+
+            const installmentInfo = parseInstallments(parcela);
+            
+            transactions.push({
+              description: nome,
+              amount,
+              date: parseDate(data),
+              category: categoria || 'Outros',
+              card_name: cardName,
+              card_type: cardType,
+              ...installmentInfo
+            });
+          }
+
+          resolve(transactions);
+        } catch (error) {
+          reject(error);
         }
-      } else if (currentSection.includes('Nubank')) {
-        cardName = 'Nubank';
-      } else if (currentSection.includes('Magalu') || currentSection.includes('Magazine')) {
-        cardName = 'Magalu';
-      }
-
-      const installmentInfo = parseInstallments(parcela);
+      };
       
-      transactions.push({
-        description: nome.trim(),
-        amount,
-        date: parseDate(data),
-        category: categoria?.trim() || 'Outros',
-        card_name: cardName,
-        card_type: cardType,
-        ...installmentInfo
-      });
-    }
-
-    return transactions;
+      reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+      reader.readAsArrayBuffer(file);
+    });
   };
 
   const parseCSVLine = (line: string): string[] => {
@@ -221,32 +246,50 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'text/csv') {
+    const validTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (selectedFile && (validTypes.includes(selectedFile.type) || 
+        selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls'))) {
       setFile(selectedFile);
-      previewCSV(selectedFile);
+      previewExcel(selectedFile);
     } else {
       toast({
         title: "Arquivo inválido",
-        description: "Por favor, selecione um arquivo CSV válido.",
+        description: "Por favor, selecione um arquivo Excel válido (.xlsx ou .xls).",
         variant: "destructive",
       });
     }
   };
 
-  const previewCSV = async (file: File) => {
-    const text = await file.text();
-    setCsvContent(text);
-    const allTransactions = parseCSVContent(text);
-    
-    // Preview first 10 transactions
-    setPreview(allTransactions.slice(0, 10));
+  const previewExcel = async (file: File) => {
+    try {
+      const allTransactions = await parseExcelContent(file);
+      
+      // Convert transactions to text format for AI analysis
+      const textContent = allTransactions.map(t => 
+        `${t.description},${t.installment_number || ''}/${t.installments || ''},${t.date},${t.category},${t.amount},${t.card_type}`
+      ).join('\n');
+      
+      setExcelContent(textContent);
+      setPreview(allTransactions.slice(0, 10));
+    } catch (error) {
+      console.error('Erro ao processar arquivo Excel:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível processar o arquivo Excel.",
+        variant: "destructive",
+      });
+    }
   };
 
   const analyzeWithAI = async (analysisType: string) => {
-    if (!csvContent) {
+    if (!excelContent) {
       toast({
         title: "Erro",
-        description: "Nenhum arquivo CSV carregado para análise.",
+        description: "Nenhum arquivo Excel carregado para análise.",
         variant: "destructive",
       });
       return;
@@ -256,7 +299,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
     try {
       const { data, error } = await supabase.functions.invoke('analyze-csv', {
         body: { 
-          csvContent: csvContent.slice(0, 5000), // Limit to first 5000 chars for analysis
+          csvContent: excelContent.slice(0, 5000), // Limit to first 5000 chars for analysis
           analysisType 
         }
       });
@@ -291,11 +334,11 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
       }
     } catch (error) {
       console.error('Error analyzing CSV:', error);
-      toast({
-        title: "Erro na Análise",
-        description: "Não foi possível analisar o CSV com IA.",
-        variant: "destructive",
-      });
+        toast({
+          title: "Erro na Análise",
+          description: "Não foi possível analisar o arquivo Excel com IA.",
+          variant: "destructive",
+        });
     } finally {
       setIsAnalyzing(false);
     }
@@ -306,12 +349,12 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
 
     // Primeiro fazer análise financeira
     setIsAnalyzing(true);
-    const text = await file.text();
+    const content = excelContent;
     
     try {
       const { data, error } = await supabase.functions.invoke('analyze-csv', {
         body: {
-          csvContent: text,
+          csvContent: content,
           analysisType: 'financial-overview'
         }
       });
@@ -346,8 +389,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
     setProgress(0);
 
     try {
-      const text = await file.text();
-      const transactions = parseCSVContent(text);
+      const transactions = await parseExcelContent(file);
 
       // Import transactions
       for (let i = 0; i < transactions.length; i++) {
@@ -373,7 +415,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
       console.error('Error importing CSV:', error);
       toast({
         title: "Erro na importação",
-        description: "Não foi possível importar o arquivo CSV.",
+        description: "Não foi possível importar o arquivo Excel.",
         variant: "destructive",
       });
     } finally {
@@ -449,24 +491,24 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Upload className="w-5 h-5 mr-2" />
-            Importar Dados CSV
+            Importar Dados Excel
           </CardTitle>
           <CardDescription>
-            Faça upload do arquivo CSV com suas transações financeiras
+            Faça upload do arquivo Excel com suas transações financeiras
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="csv-file">Selecionar arquivo CSV</Label>
+            <Label htmlFor="excel-file">Selecionar arquivo Excel</Label>
             <Input
-              id="csv-file"
+              id="excel-file"
               type="file"
-              accept=".csv"
+              accept=".xlsx,.xls"
               onChange={handleFileChange}
               disabled={importing}
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Formato esperado: Nome, Parcela, Data, Categoria, Valor, Tipo
+              Formatos aceitos: .xlsx e .xls | Formato esperado: Nome, Parcela, Data, Categoria, Valor, Tipo
             </p>
           </div>
 
@@ -495,7 +537,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
       </Card>
 
       {/* AI Analysis Section */}
-      {file && csvContent && (
+      {file && excelContent && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

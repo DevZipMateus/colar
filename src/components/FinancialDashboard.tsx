@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Plus, Upload } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { TransactionForm } from './TransactionForm';
-import { CSVImport } from './CSVImport';
+import { ExcelImport } from './ExcelImport';
 import { CategoryManagement } from './CategoryManagement';
 import { CardManagement } from './CardManagement';
 import { ReportGenerator } from './ReportGenerator';
@@ -19,7 +19,7 @@ interface FinancialDashboardProps {
 
 export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
-  const [showCSVImport, setShowCSVImport] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const { summary, transactions, loading, generateReport, fetchTransactions } = useFinancialData(groupId);
 
   const formatCurrency = (value: number) => {
@@ -39,9 +39,9 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
     setShowTransactionForm(false);
   };
 
-  const handleCSVSuccess = () => {
+  const handleExcelSuccess = () => {
     fetchTransactions();
-    setShowCSVImport(false);
+    setShowExcelImport(false);
   };
 
   if (loading) {
@@ -76,12 +76,12 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
             Nova Transação
           </Button>
           <Button
-            onClick={() => setShowCSVImport(true)}
+            onClick={() => setShowExcelImport(true)}
             variant="outline"
             className="flex items-center gap-2"
           >
             <Upload className="h-4 w-4" />
-            Importar CSV
+            Importar Excel
           </Button>
           <Button
             onClick={handleGenerateReport}
@@ -137,10 +137,10 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
         />
       )}
 
-      {showCSVImport && (
-        <CSVImport
+      {showExcelImport && (
+        <ExcelImport
           groupId={groupId}
-          onSuccess={handleCSVSuccess}
+          onSuccess={handleExcelSuccess}
         />
       )}
     </div>
