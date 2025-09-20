@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Plus, Upload } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { TransactionForm } from './TransactionForm';
+import { TransactionList } from './TransactionList';
 import { ExcelImport } from './ExcelImport';
 import { CategoryManagement } from './CategoryManagement';
 import { CardManagement } from './CardManagement';
@@ -106,6 +107,7 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
 
         <TabsContent value="overview" className="space-y-4">
           <FinancialOverview groupId={groupId} />
+          <TransactionList groupId={groupId} />
         </TabsContent>
 
         <TabsContent value="monthly" className="space-y-4">

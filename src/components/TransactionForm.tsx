@@ -12,25 +12,27 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
+import { toast } from '@/hooks/use-toast';
 
 interface TransactionFormProps {
   groupId: string;
+  editingTransaction?: Transaction;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClose, onSuccess }) => {
-  const { addTransaction } = useFinancialData(groupId);
+export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editingTransaction, onClose, onSuccess }) => {
+  const { addTransaction, updateTransaction } = useFinancialData(groupId);
   const { createInstallments } = useInstallmentTracking(groupId);
   const [formData, setFormData] = useState({
-    description: '',
-    amount: '',
-    date: new Date(),
-    category: '',
-    card_name: '',
-    card_type: 'credit' as 'credit' | 'debit',
-    installments: '',
-    is_recurring: false,
+    description: editingTransaction?.description || '',
+    amount: editingTransaction?.amount?.toString() || '',
+    date: editingTransaction ? new Date(editingTransaction.date) : new Date(),
+    category: editingTransaction?.category || '',
+    card_name: editingTransaction?.card_name || '',
+    card_type: (editingTransaction?.card_type || 'credit') as 'credit' | 'debit',
+    installments: editingTransaction?.installments?.toString() || '',
+    is_recurring: editingTransaction?.is_recurring || false,
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,6 +51,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description || !formData.amount || !formData.category || !formData.card_name) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -57,8 +64,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
       const amount = parseFloat(formData.amount.replace(',', '.'));
       const installments = formData.installments ? parseInt(formData.installments) : undefined;
 
-      // Create the main transaction
-      const result = await addTransaction({
+      const transactionData = {
         group_id: groupId,
         description: formData.description,
         amount,
@@ -68,27 +74,36 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
         card_type: formData.card_type,
         installments,
         is_recurring: formData.is_recurring,
-      });
+      };
 
-      // If it's a credit card transaction with installments, create installment tracking
-      if (result && typeof result === 'object' && result.success && result.data && formData.card_type === 'credit' && installments && installments > 1) {
-        const transactionDate = new Date(formData.date);
-        const startMonth = transactionDate.getMonth() + 1;
-        const startYear = transactionDate.getFullYear();
+      let result;
+      if (editingTransaction) {
+        result = await updateTransaction(editingTransaction.id, transactionData);
+      } else {
+        result = await addTransaction(transactionData);
         
-        await createInstallments(
-          result.data.id,
-          amount,
-          installments,
-          startMonth,
-          startYear
-        );
+        // If it's a new credit card transaction with installments, create installment tracking
+        if (result && typeof result === 'object' && result.success && result.data && formData.card_type === 'credit' && installments && installments > 1) {
+          const transactionDate = new Date(formData.date);
+          const startMonth = transactionDate.getMonth() + 1;
+          const startYear = transactionDate.getFullYear();
+          
+          await createInstallments(
+            result.data.id,
+            amount,
+            installments,
+            startMonth,
+            startYear
+          );
+        }
       }
 
-      onSuccess();
-      onClose();
+      if (result && result.success) {
+        onSuccess();
+        onClose();
+      }
     } catch (error) {
-      console.error('Error adding transaction:', error);
+      console.error('Error processing transaction:', error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +113,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Nova Transação</CardTitle>
+          <CardTitle>{editingTransaction ? 'Editar Transação' : 'Nova Transação'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -223,7 +238,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, onClo
                 Cancelar
               </Button>
               <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? 'Salvando...' : 'Salvar'}
+                {loading ? (editingTransaction ? 'Atualizando...' : 'Salvando...') : (editingTransaction ? 'Atualizar' : 'Salvar')}
               </Button>
             </div>
           </form>

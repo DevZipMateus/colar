@@ -285,6 +285,69 @@ export const useFinancialData = (groupId: string | null) => {
     }
   };
 
+  const updateTransaction = async (id: string, transactionData: Partial<Omit<Transaction, 'id' | 'created_at' | 'created_by'>>) => {
+    if (!user || !groupId) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('financial_transactions')
+        .update({
+          ...transactionData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('group_id', groupId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchTransactions();
+      toast({
+        title: "Transação atualizada",
+        description: "A transação foi atualizada com sucesso.",
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      toast({
+        title: "Erro ao atualizar transação",
+        description: "Não foi possível atualizar a transação.",
+        variant: "destructive",
+      });
+      return { success: false, data: null };
+    }
+  };
+
+  const deleteTransaction = async (id: string) => {
+    if (!user || !groupId) return false;
+
+    try {
+      const { error } = await supabase
+        .from('financial_transactions')
+        .delete()
+        .eq('id', id)
+        .eq('group_id', groupId);
+
+      if (error) throw error;
+
+      await fetchTransactions();
+      toast({
+        title: "Transação excluída",
+        description: "A transação foi excluída com sucesso.",
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      toast({
+        title: "Erro ao excluir transação",
+        description: "Não foi possível excluir a transação.",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+  };
+
   const parseCSVData = (csvContent: string) => {
     // Parse CSV logic will be implemented here
     // This will extract transactions from the CSV format
@@ -373,6 +436,8 @@ ${userSummary.transactions.map(t =>
     summary,
     loading,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     parseCSVData,
     generateReport,
     fetchTransactions

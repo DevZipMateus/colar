@@ -11,6 +11,7 @@ import { useFinancialData } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ImportConfirmationModal } from './ImportConfirmationModal';
+import { TransactionSelectionModal } from './TransactionSelectionModal';
 import * as XLSX from 'xlsx';
 
 interface ExcelImportProps {
@@ -74,6 +75,8 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({ groupId, onSuccess }) 
   const [excelContent, setExcelContent] = useState<string>('');
   const [financialOverview, setFinancialOverview] = useState<FinancialOverview | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showTransactionSelection, setShowTransactionSelection] = useState(false);
+  const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
   const [confirmationData, setConfirmationData] = useState<any>(null);
   const { addTransaction } = useFinancialData(groupId);
 
@@ -347,38 +350,17 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({ groupId, onSuccess }) 
   const handleImport = async () => {
     if (!file) return;
 
-    // Primeiro fazer análise financeira
-    setIsAnalyzing(true);
-    const content = excelContent;
-    
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-csv', {
-        body: {
-          csvContent: content,
-          analysisType: 'financial-overview'
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.analysis) {
-        try {
-          const parsedAnalysis = JSON.parse(data.analysis);
-          setConfirmationData(parsedAnalysis);
-          setShowConfirmation(true);
-        } catch (parseError) {
-          console.error('Erro ao fazer parse da análise:', parseError);
-          // Fallback para importação direta
-          await importDirectly();
-        }
-      } else {
-        await importDirectly();
-      }
+      const transactions = await parseExcelContent(file);
+      setParsedTransactions(transactions);
+      setShowTransactionSelection(true);
     } catch (error) {
-      console.error('Erro na análise:', error);
-      await importDirectly();
-    } finally {
-      setIsAnalyzing(false);
+      console.error('Erro ao processar arquivo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível processar o arquivo Excel.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -416,6 +398,45 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({ groupId, onSuccess }) 
       toast({
         title: "Erro na importação",
         description: "Não foi possível importar o arquivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      setProgress(0);
+    }
+  };
+
+  const handleTransactionSelection = async (selectedTransactions: ParsedTransaction[]) => {
+    setImporting(true);
+    setProgress(0);
+    
+    try {
+      // Import selected transactions
+      for (let i = 0; i < selectedTransactions.length; i++) {
+        const transaction = selectedTransactions[i];
+        await addTransaction({
+          group_id: groupId,
+          ...transaction
+        });
+        
+        setProgress(((i + 1) / selectedTransactions.length) * 100);
+      }
+
+      toast({
+        title: "Importação concluída",
+        description: `${selectedTransactions.length} transações foram importadas com sucesso.`,
+      });
+
+      onSuccess();
+      setFile(null);
+      setPreview([]);
+      setParsedTransactions([]);
+      setShowTransactionSelection(false);
+    } catch (error) {
+      console.error('Erro ao importar transações:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao processar importação",
         variant: "destructive",
       });
     } finally {
@@ -909,6 +930,14 @@ Bolsa Maternidade,2/4,17/08,Necessidades,"R$ 47,49",`;
         data={confirmationData}
         onConfirm={handleConfirmImport}
         onCancel={() => setShowConfirmation(false)}
+      />
+
+      <TransactionSelectionModal
+        open={showTransactionSelection}
+        onOpenChange={setShowTransactionSelection}
+        transactions={parsedTransactions}
+        onConfirm={handleTransactionSelection}
+        onCancel={() => setShowTransactionSelection(false)}
       />
     </div>
   );
