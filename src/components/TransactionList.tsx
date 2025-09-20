@@ -71,104 +71,176 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
               <p>Nenhuma transação encontrada</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Cartão</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Parcelas</TableHead>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-semibold ${
+            <>
+              {/* Mobile View */}
+              <div className="block md:hidden space-y-3">
+                {transactions.map((transaction) => (
+                  <Card key={transaction.id} className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-sm">{transaction.description}</h3>
+                        <p className="text-xs text-muted-foreground">{formatDate(transaction.date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`font-semibold text-sm ${
                           transaction.card_type === 'credit' ? 'text-red-600' : 'text-blue-600'
                         }`}>
                           {formatCurrency(transaction.amount)}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(transaction.date)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{transaction.category}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <CreditCard className="h-4 w-4 text-muted-foreground" />
-                          {transaction.card_name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={transaction.card_type === 'credit' ? 'destructive' : 'default'}>
-                          {transaction.card_type === 'credit' ? 'Crédito' : 'Débito'}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <Badge variant="outline" className="text-xs">{transaction.category}</Badge>
+                      <Badge variant={transaction.card_type === 'credit' ? 'destructive' : 'default'} className="text-xs">
+                        {transaction.card_type === 'credit' ? 'Crédito' : 'Débito'}
+                      </Badge>
+                      {transaction.installments && transaction.installment_number && (
+                        <Badge variant="secondary" className="text-xs">
+                          {transaction.installment_number}/{transaction.installments}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {transaction.installments && transaction.installment_number ? (
-                          <span className="text-sm">
-                            {transaction.installment_number}/{transaction.installments}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{transaction.user_name}</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(transaction)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <span>{transaction.card_name} • {transaction.user_name}</span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleEdit(transaction)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir Transação</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir a transação "{transaction.description}"? 
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(transaction.id)}>
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Cartão</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Parcelas</TableHead>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell className="font-medium">
+                            {transaction.description}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`font-semibold ${
+                              transaction.card_type === 'credit' ? 'text-red-600' : 'text-blue-600'
+                            }`}>
+                              {formatCurrency(transaction.amount)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {formatDate(transaction.date)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{transaction.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                              {transaction.card_name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={transaction.card_type === 'credit' ? 'destructive' : 'default'}>
+                              {transaction.card_type === 'credit' ? 'Crédito' : 'Débito'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {transaction.installments && transaction.installment_number ? (
+                              <span className="text-sm">
+                                {transaction.installment_number}/{transaction.installments}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm">{transaction.user_name}</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(transaction)}
+                              >
+                                <Edit className="h-4 w-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir Transação</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir a transação "{transaction.description}"? 
-                                  Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(transaction.id)}>
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir Transação</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir a transação "{transaction.description}"? 
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(transaction.id)}>
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

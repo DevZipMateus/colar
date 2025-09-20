@@ -65,45 +65,53 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Controle Financeiro</h1>
-        <div className="flex gap-2">
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6 max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Controle Financeiro</h1>
+        <div className="flex flex-wrap gap-2">
           <Button
             onClick={() => setShowTransactionForm(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-sm"
+            size="sm"
           >
             <Plus className="h-4 w-4" />
-            Nova Transação
+            <span className="hidden sm:inline">Nova Transação</span>
+            <span className="sm:hidden">Nova</span>
           </Button>
           <Button
             onClick={() => setShowExcelImport(true)}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-sm"
+            size="sm"
           >
             <Upload className="h-4 w-4" />
-            Importar Excel
+            <span className="hidden sm:inline">Importar Excel</span>
+            <span className="sm:hidden">Importar</span>
           </Button>
           <Button
             onClick={handleGenerateReport}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-sm"
+            size="sm"
           >
             <Download className="h-4 w-4" />
-            Relatório
+            <span className="hidden sm:inline">Relatório</span>
+            <span className="sm:hidden">Report</span>
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview">Resumo</TabsTrigger>
-          <TabsTrigger value="monthly">Controle Mensal</TabsTrigger>
-          <TabsTrigger value="splits">Divisão de Gastos</TabsTrigger>
-          <TabsTrigger value="cards">Cartões</TabsTrigger>
-          <TabsTrigger value="categories">Categorias</TabsTrigger>
-          <TabsTrigger value="reports">Relatórios</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 min-w-[600px] md:min-w-0">
+            <TabsTrigger value="overview" className="text-xs md:text-sm">Resumo</TabsTrigger>
+            <TabsTrigger value="monthly" className="text-xs md:text-sm">Mensal</TabsTrigger>
+            <TabsTrigger value="splits" className="text-xs md:text-sm">Divisão</TabsTrigger>
+            <TabsTrigger value="cards" className="text-xs md:text-sm">Cartões</TabsTrigger>
+            <TabsTrigger value="categories" className="text-xs md:text-sm">Categorias</TabsTrigger>
+            <TabsTrigger value="reports" className="text-xs md:text-sm">Relatórios</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-4">
           <FinancialOverview groupId={groupId} />

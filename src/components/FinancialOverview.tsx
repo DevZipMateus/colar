@@ -59,7 +59,7 @@ export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
       </Card>
 
       {/* Expense Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -101,7 +101,7 @@ export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="border-red-200 bg-red-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold text-red-700 flex items-center gap-2">
