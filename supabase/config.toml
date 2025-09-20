@@ -1,1 +1,4 @@
 project_id = "kinocwdcqbayjxkuaggp"
+
+[functions.analyze-csv]
+verify_jwt = false

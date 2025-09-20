@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Upload, Download, CheckCircle, AlertCircle, Brain, FileText, TrendingUp, Search } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CSVImportProps {
   groupId: string;
@@ -29,6 +32,9 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [csvContent, setCsvContent] = useState<string>('');
   const { addTransaction } = useFinancialData(groupId);
 
   const parseCSVContent = (content: string): ParsedTransaction[] => {
@@ -190,10 +196,56 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
 
   const previewCSV = async (file: File) => {
     const text = await file.text();
+    setCsvContent(text);
     const allTransactions = parseCSVContent(text);
     
     // Preview first 10 transactions
     setPreview(allTransactions.slice(0, 10));
+  };
+
+  const analyzeWithAI = async (analysisType: string) => {
+    if (!csvContent) {
+      toast({
+        title: "Erro",
+        description: "Nenhum arquivo CSV carregado para análise.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-csv', {
+        body: { 
+          csvContent: csvContent.slice(0, 5000), // Limit to first 5000 chars for analysis
+          analysisType 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setAiAnalysis({
+          ...data,
+          type: analysisType
+        });
+        toast({
+          title: "Análise Concluída",
+          description: "A IA analisou seu CSV com sucesso!",
+        });
+      } else {
+        throw new Error(data.error || 'Erro na análise');
+      }
+    } catch (error) {
+      console.error('Error analyzing CSV:', error);
+      toast({
+        title: "Erro na Análise",
+        description: "Não foi possível analisar o CSV com IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleImport = async () => {
@@ -246,6 +298,9 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
             <Upload className="w-5 h-5 mr-2" />
             Importar Dados CSV
           </CardTitle>
+          <CardDescription>
+            Faça upload do arquivo CSV com suas transações financeiras
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -285,6 +340,87 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* AI Analysis Section */}
+      {file && csvContent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              Análise Inteligente do CSV
+            </CardTitle>
+            <CardDescription>
+              Use IA para analisar e validar seu arquivo antes da importação
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="structure" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="structure" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Estrutura
+                </TabsTrigger>
+                <TabsTrigger value="validation" className="flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  Validação
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Insights
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="structure" className="space-y-4">
+                <Button 
+                  onClick={() => analyzeWithAI('structure')} 
+                  disabled={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? 'Analisando Estrutura...' : 'Analisar Estrutura do CSV'}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="validation" className="space-y-4">
+                <Button 
+                  onClick={() => analyzeWithAI('validation')} 
+                  disabled={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? 'Validando Dados...' : 'Validar Dados do CSV'}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="insights" className="space-y-4">
+                <Button 
+                  onClick={() => analyzeWithAI('insights')} 
+                  disabled={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? 'Gerando Insights...' : 'Gerar Insights Financeiros'}
+                </Button>
+              </TabsContent>
+            </Tabs>
+
+            {/* Analysis Results */}
+            {aiAnalysis && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="h-4 w-4" />
+                    Análise da IA
+                    <Badge variant="outline">{aiAnalysis.type}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-md">
+                    {aiAnalysis.analysis}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {preview.length > 0 && (
         <Card>
