@@ -650,30 +650,72 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                 )}
 
                 {/* Análises Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      Alertas e Análises
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={financialOverview.analises.saldo_status === 'positivo' ? 'default' : 'destructive'}>
-                        Saldo {financialOverview.analises.saldo_status}
-                      </Badge>
-                    </div>
-                    
-                    {financialOverview.analises.categorias_estouradas.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium text-red-600 mb-2">Categorias que estouraram o orçamento:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {financialOverview.analises.categorias_estouradas.map((categoria, index) => (
-                            <Badge key={index} variant="destructive">{categoria}</Badge>
-                          ))}
-                        </div>
+                {financialOverview.analises && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Alertas e Análises
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={financialOverview.analises.saldo_status === 'positivo' ? 'default' : 'destructive'}>
+                          Saldo {financialOverview.analises.saldo_status}
+                        </Badge>
                       </div>
-                 )}
+                      
+                      {financialOverview.analises.categorias_estouradas && financialOverview.analises.categorias_estouradas.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-red-600 mb-2">Categorias que estouraram o orçamento:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {financialOverview.analises.categorias_estouradas.map((categoria, index) => (
+                              <Badge key={index} variant="destructive">{categoria}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {financialOverview.analises.maior_gasto && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Maior categoria de gasto: <span className="font-medium">{financialOverview.analises.maior_gasto}</span>
+                          </p>
+                        </div>
+                      )}
+                      
+                      {financialOverview.analises.percentual_usado_orcamento !== null && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Percentual do orçamento utilizado: <span className="font-medium">{financialOverview.analises.percentual_usado_orcamento.toFixed(0)}%</span>
+                          </p>
+                        </div>
+                      )}
+                      
+                      {financialOverview.analises.cartao_mais_usado && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Cartão mais utilizado: <span className="font-medium">{financialOverview.analises.cartao_mais_usado}</span>
+                          </p>
+                        </div>
+                      )}
+
+                      {financialOverview.analises.alertas && financialOverview.analises.alertas.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-amber-600 mb-2">Alertas importantes:</p>
+                          <div className="space-y-1">
+                            {financialOverview.analises.alertas.map((alerta, index) => (
+                              <div key={index} className="text-sm text-amber-800 bg-amber-50 p-2 rounded flex items-start gap-2">
+                                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                {alerta}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                  {/* Cartões de Crédito Card */}
                  {financialOverview.cartoes && financialOverview.cartoes.length > 0 && (
@@ -719,51 +761,12 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                        </div>
                      </CardContent>
                    </Card>
-                 )}
-                    
-                    {financialOverview.analises.maior_gasto && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Maior categoria de gasto: <span className="font-medium">{financialOverview.analises.maior_gasto}</span>
-                        </p>
-                      </div>
-                    )}
-                    
-                    {financialOverview.analises.percentual_usado_orcamento !== null && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Percentual do orçamento utilizado: <span className="font-medium">{financialOverview.analises.percentual_usado_orcamento.toFixed(0)}%</span>
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-                     
-                     {financialOverview.analises.cartao_mais_usado && (
-                       <div>
-                         <p className="text-sm text-muted-foreground">
-                           Cartão mais utilizado: <span className="font-medium">{financialOverview.analises.cartao_mais_usado}</span>
-                         </p>
-                       </div>
-                     )}
+                  )}
+                </div>
+              )}
 
-                     {financialOverview.analises.alertas && financialOverview.analises.alertas.length > 0 && (
-                       <div>
-                         <p className="text-sm font-medium text-amber-600 mb-2">Alertas importantes:</p>
-                         <div className="space-y-1">
-                           {financialOverview.analises.alertas.map((alerta, index) => (
-                             <div key={index} className="text-sm text-amber-800 bg-amber-50 p-2 rounded flex items-start gap-2">
-                               <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                               {alerta}
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                     )}
-            {/* Analysis Results */}
-            {aiAnalysis && (
+              {/* Analysis Results */}
+              {aiAnalysis && (
               <Card className="mt-4">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
