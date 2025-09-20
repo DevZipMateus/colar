@@ -27,6 +27,27 @@ interface ParsedTransaction {
   installment_number?: number;
 }
 
+interface FinancialOverview {
+  totais: {
+    total_gastos: number | null;
+    saldo: number | null;
+    total_fixos: number | null;
+    total_gastos_mes: number | null;
+  };
+  categorias: Array<{
+    nome: string;
+    valor_esperado: number | null;
+    valor_gasto: number | null;
+    porcentagem: number | null;
+  }>;
+  analises: {
+    saldo_status: 'positivo' | 'negativo' | 'neutro';
+    categorias_estouradas: string[];
+    maior_gasto: string;
+    percentual_usado_orcamento: number | null;
+  };
+}
+
 export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -35,6 +56,7 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [csvContent, setCsvContent] = useState<string>('');
+  const [financialOverview, setFinancialOverview] = useState<FinancialOverview | null>(null);
   const { addTransaction } = useFinancialData(groupId);
 
   const parseCSVContent = (content: string): ParsedTransaction[] => {
@@ -225,10 +247,24 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
       if (error) throw error;
 
       if (data.success) {
-        setAiAnalysis({
-          ...data,
-          type: analysisType
-        });
+        if (analysisType === 'financial-overview') {
+          try {
+            const overview = JSON.parse(data.analysis);
+            setFinancialOverview(overview);
+          } catch (parseError) {
+            console.error('Error parsing financial overview:', parseError);
+            // Fallback to regular analysis display
+            setAiAnalysis({
+              ...data,
+              type: analysisType
+            });
+          }
+        } else {
+          setAiAnalysis({
+            ...data,
+            type: analysisType
+          });
+        }
         toast({
           title: "Análise Concluída",
           description: "A IA analisou seu CSV com sucesso!",
@@ -354,8 +390,12 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="structure" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue="financial" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="financial" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Análise Financeira
+                </TabsTrigger>
                 <TabsTrigger value="structure" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Estrutura
@@ -369,6 +409,16 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                   Insights
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="financial" className="space-y-4">
+                <Button 
+                  onClick={() => analyzeWithAI('financial-overview')} 
+                  disabled={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? 'Analisando Dados Financeiros...' : 'Analisar Dados Financeiros'}
+                </Button>
+              </TabsContent>
 
               <TabsContent value="structure" className="space-y-4">
                 <Button 
@@ -400,6 +450,127 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                 </Button>
               </TabsContent>
             </Tabs>
+
+            {/* Financial Overview Results */}
+            {financialOverview && (
+              <div className="mt-4 space-y-4">
+                {/* Totais Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Resumo Financeiro
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {financialOverview.totais.total_gastos !== null && (
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Total de Gastos</p>
+                          <p className="text-2xl font-bold">R$ {financialOverview.totais.total_gastos.toFixed(2)}</p>
+                        </div>
+                      )}
+                      {financialOverview.totais.saldo !== null && (
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Saldo</p>
+                          <p className={`text-2xl font-bold ${financialOverview.totais.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            R$ {financialOverview.totais.saldo.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      {financialOverview.totais.total_fixos !== null && (
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Gastos Fixos</p>
+                          <p className="text-2xl font-bold">R$ {financialOverview.totais.total_fixos.toFixed(2)}</p>
+                        </div>
+                      )}
+                      {financialOverview.totais.total_gastos_mes !== null && (
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Gastos do Mês</p>
+                          <p className="text-2xl font-bold">R$ {financialOverview.totais.total_gastos_mes.toFixed(2)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Categorias Card */}
+                {financialOverview.categorias.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Análise por Categoria</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {financialOverview.categorias.map((categoria, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{categoria.nome}</h4>
+                              <div className="text-sm text-muted-foreground">
+                                {categoria.valor_esperado !== null && categoria.valor_gasto !== null && (
+                                  <>Orçado: R$ {categoria.valor_esperado.toFixed(2)} • Gasto: R$ {categoria.valor_gasto.toFixed(2)}</>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {categoria.porcentagem !== null && (
+                                <Badge variant={categoria.porcentagem > 100 ? "destructive" : "secondary"}>
+                                  {categoria.porcentagem.toFixed(0)}%
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Análises Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Alertas e Análises
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={financialOverview.analises.saldo_status === 'positivo' ? 'default' : 'destructive'}>
+                        Saldo {financialOverview.analises.saldo_status}
+                      </Badge>
+                    </div>
+                    
+                    {financialOverview.analises.categorias_estouradas.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-red-600 mb-2">Categorias que estouraram o orçamento:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {financialOverview.analises.categorias_estouradas.map((categoria, index) => (
+                            <Badge key={index} variant="destructive">{categoria}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {financialOverview.analises.maior_gasto && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Maior categoria de gasto: <span className="font-medium">{financialOverview.analises.maior_gasto}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    {financialOverview.analises.percentual_usado_orcamento !== null && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Percentual do orçamento utilizado: <span className="font-medium">{financialOverview.analises.percentual_usado_orcamento.toFixed(0)}%</span>
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Analysis Results */}
             {aiAnalysis && (

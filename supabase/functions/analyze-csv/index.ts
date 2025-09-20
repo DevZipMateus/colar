@@ -76,6 +76,45 @@ Forneça análises sobre:
 6. Alertas sobre gastos altos
 
 Responda em português de forma clara e estruturada.`;
+    } else if (analysisType === 'financial-overview') {
+      prompt = `
+Você é um especialista em análise de planilhas financeiras brasileiras. Analise este CSV de controle financeiro exportado de uma planilha e extraia as seções de forma estruturada.
+
+CSV:
+${csvContent}
+
+TAREFAS:
+1. Identifique e separe as seções:
+   - Total de Gastos e Saldo (valores como "Total de Gastos: R$ 2.293,17", "Saldo: -R$ 293,17")
+   - Gastos Fixos e Gastos do Mês
+   - Tabela de Categorias (com colunas: Categoria, Valor esperado, Valor gasto, Porcentagem)
+
+2. Limpe os valores numéricos:
+   - Converta "R$ 2.293,17" em 2293.17
+   - Converta "-R$ 293,17" em -293.17
+   - Ignore células vazias ou "#ERROR!"
+   - Trate pontos como separadores de milhares e vírgulas como decimais
+
+3. RESPONDA APENAS COM UM JSON VÁLIDO neste formato exato:
+{
+  "totais": {
+    "total_gastos": número ou null,
+    "saldo": número ou null,
+    "total_fixos": número ou null,
+    "total_gastos_mes": número ou null
+  },
+  "categorias": [
+    {"nome": "string", "valor_esperado": número ou null, "valor_gasto": número ou null, "porcentagem": número ou null}
+  ],
+  "analises": {
+    "saldo_status": "positivo/negativo/neutro",
+    "categorias_estouradas": ["nome das categorias que estouraram"],
+    "maior_gasto": "nome da categoria com maior gasto",
+    "percentual_usado_orcamento": número ou null
+  }
+}
+
+NÃO inclua texto adicional, apenas o JSON válido.`;
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
