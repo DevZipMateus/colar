@@ -85,6 +85,20 @@ export const useTasks = (groupId: string | null) => {
       }
 
       setTasks(prev => [data, ...prev]);
+      
+      // Registrar atividade
+      await supabase
+        .from('activity_feed')
+        .insert({
+          group_id: taskData.group_id,
+          user_id: user.id,
+          activity_type: 'task_created',
+          description: `Criou tarefa: ${taskData.title}`,
+          metadata: {
+            task_title: taskData.title
+          }
+        });
+
       toast({
         title: "Tarefa criada",
         description: "A tarefa foi criada com sucesso.",
@@ -155,7 +169,25 @@ export const useTasks = (groupId: string | null) => {
   };
 
   const toggleTaskCompletion = async (taskId: string, completed: boolean) => {
-    return updateTask(taskId, { completed });
+    const task = tasks.find(t => t.id === taskId);
+    const success = await updateTask(taskId, { completed });
+    
+    if (success && task && completed) {
+      // Registrar atividade apenas quando completar tarefa
+      await supabase
+        .from('activity_feed')
+        .insert({
+          group_id: task.group_id,
+          user_id: task.created_by,
+          activity_type: 'task_completed',
+          description: `Completou tarefa: ${task.title}`,
+          metadata: {
+            task_title: task.title
+          }
+        });
+    }
+    
+    return success;
   };
 
   useEffect(() => {

@@ -269,6 +269,22 @@ export const useFinancialData = (groupId: string | null) => {
       }
 
       await fetchTransactions();
+      
+      // Registrar atividade
+      await supabase
+        .from('activity_feed')
+        .insert({
+          group_id: groupId,
+          user_id: user.id,
+          activity_type: 'transaction_added',
+          description: `Adicionou transação: ${transactionData.description}`,
+          metadata: {
+            amount: transactionData.amount,
+            category: transactionData.category,
+            card_name: transactionData.card_name
+          }
+        });
+
       toast({
         title: "Transação adicionada",
         description: "A transação foi adicionada com sucesso.",
