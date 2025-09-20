@@ -12,10 +12,9 @@ serve(async (req) => {
   }
 
   try {
+    const OLLAMA_API_BASE = Deno.env.get('OLLAMA_API_BASE');
+    const OLLAMA_MODEL = Deno.env.get('OLLAMA_MODEL');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set');
-    }
 
     const { csvContent, analysisType = 'structure' } = await req.json();
     
@@ -25,10 +24,15 @@ serve(async (req) => {
 
     console.log('Analyzing CSV with type:', analysisType);
 
-    let prompt = '';
-    
-    if (analysisType === 'structure') {
-      prompt = `
+    // Função para criar prompts otimizados para Mistral
+    const createPromptForMistral = (analysisType: string, csvContent: string): string => {
+      const systemContext = "Você é um especialista em análise de dados financeiros e CSVs brasileiros. Sempre responda em português brasileiro de forma clara e estruturada.";
+      
+      let userPrompt = '';
+      
+      if (analysisType === 'structure') {
+        userPrompt = `${systemContext}
+
 Analise a estrutura deste CSV e responda em português:
 
 CSV:
@@ -44,8 +48,9 @@ Por favor, forneça:
 7. Sugestões de mapeamento para campos financeiros (descrição, valor, data, categoria, etc)
 
 Responda em formato JSON estruturado.`;
-    } else if (analysisType === 'validation') {
-      prompt = `
+      } else if (analysisType === 'validation') {
+        userPrompt = `${systemContext}
+
 Valide este CSV financeiro e identifique problemas em português:
 
 CSV:
@@ -60,8 +65,9 @@ Verifique:
 6. Sugestões de correção
 
 Responda em formato JSON com lista de problemas encontrados.`;
-    } else if (analysisType === 'insights') {
-      prompt = `
+      } else if (analysisType === 'insights') {
+        userPrompt = `${systemContext}
+
 Gere insights financeiros deste CSV em português:
 
 CSV:
@@ -76,9 +82,10 @@ Forneça análises sobre:
 6. Alertas sobre gastos altos
 
 Responda em português de forma clara e estruturada.`;
-    } else if (analysisType === 'financial-overview') {
-      prompt = `
-Você é um especialista em análise de planilhas financeiras brasileiras. Analise este CSV de controle financeiro exportado de uma planilha e extraia as seções de forma estruturada.
+      } else if (analysisType === 'financial-overview') {
+        userPrompt = `${systemContext}
+
+Analise este CSV de controle financeiro exportado de uma planilha brasileira e extraia as seções de forma estruturada.
 
 CSV:
 ${csvContent}
@@ -133,43 +140,113 @@ TAREFAS:
 }
 
 NÃO inclua texto adicional, apenas o JSON válido.`;
+      }
+      
+      return userPrompt;
+    };
+
+    // Função para tentar análise com Ollama
+    const tryOllamaAnalysis = async (prompt: string): Promise<string> => {
+      if (!OLLAMA_API_BASE || !OLLAMA_MODEL) {
+        throw new Error('Ollama not configured');
+      }
+
+      console.log('Tentando análise com Ollama/Mistral...');
+      
+      const ollamaResponse = await fetch(`${OLLAMA_API_BASE}/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          prompt: prompt,
+          stream: false,
+        }),
+      });
+
+      if (!ollamaResponse.ok) {
+        const errorText = await ollamaResponse.text();
+        console.error('Ollama API error:', errorText);
+        throw new Error(`Ollama API error: ${ollamaResponse.status}`);
+      }
+
+      const ollamaData = await ollamaResponse.json();
+      
+      if (!ollamaData.response) {
+        throw new Error('Invalid Ollama response format');
+      }
+
+      console.log('Análise Ollama/Mistral concluída com sucesso');
+      return ollamaData.response;
+    };
+
+    // Função de fallback para OpenAI
+    const tryOpenAIAnalysis = async (prompt: string): Promise<string> => {
+      if (!OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not available for fallback');
+      }
+
+      console.log('Usando fallback OpenAI...');
+      
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'Você é um especialista em análise de dados financeiros e CSVs. Sempre responda em português brasileiro de forma clara e estruturada.' 
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorData = await openaiResponse.text();
+        console.error('OpenAI API error:', errorData);
+        throw new Error(`OpenAI API error: ${openaiResponse.status}`);
+      }
+
+      const openaiData = await openaiResponse.json();
+      console.log('Análise OpenAI (fallback) concluída com sucesso');
+      return openaiData.choices[0].message.content;
+    };
+
+    // Preparar prompt otimizado
+    const prompt = createPromptForMistral(analysisType, csvContent);
+    let analysis: string;
+    let usedProvider = 'unknown';
+
+    // Tentar Ollama primeiro, fallback para OpenAI se falhar
+    try {
+      analysis = await tryOllamaAnalysis(prompt);
+      usedProvider = 'ollama';
+    } catch (ollamaError) {
+      console.warn('Ollama falhou, tentando OpenAI:', ollamaError.message);
+      try {
+        analysis = await tryOpenAIAnalysis(prompt);
+        usedProvider = 'openai';
+      } catch (openaiError) {
+        console.error('Ambas as APIs falharam:', { ollamaError: ollamaError.message, openaiError: openaiError.message });
+        throw new Error(`Análise falhou: Ollama (${ollamaError.message}) e OpenAI (${openaiError.message})`);
+      }
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um especialista em análise de dados financeiros e CSVs. Sempre responda em português brasileiro de forma clara e estruturada.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const analysis = data.choices[0].message.content;
-
-    console.log('Analysis completed successfully');
+    console.log(`Analysis completed successfully using ${usedProvider}`);
 
     return new Response(JSON.stringify({ 
       analysis,
       analysisType,
-      success: true 
+      success: true,
+      provider: usedProvider
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
