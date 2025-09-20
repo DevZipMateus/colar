@@ -16,6 +16,8 @@ export interface InstallmentTracking {
   created_by: string;
   created_at: string;
   updated_at: string;
+  user_name?: string;
+  user_avatar_url?: string;
 }
 
 export const useInstallmentTracking = (groupId: string) => {
@@ -27,7 +29,8 @@ export const useInstallmentTracking = (groupId: string) => {
     if (!groupId || !user) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch installments
+      const { data: installmentData, error: installmentError } = await supabase
         .from('installment_tracking')
         .select('*')
         .eq('group_id', groupId)
@@ -35,8 +38,34 @@ export const useInstallmentTracking = (groupId: string) => {
         .order('due_month', { ascending: true })
         .order('installment_number', { ascending: true });
 
-      if (error) throw error;
-      setInstallments(data || []);
+      if (installmentError) throw installmentError;
+
+      // Fetch user profiles for all unique created_by values
+      const uniqueUserIds = [...new Set((installmentData || []).map(i => i.created_by))];
+      
+      let userProfiles: any[] = [];
+      if (uniqueUserIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', uniqueUserIds);
+        
+        if (!profileError) {
+          userProfiles = profileData || [];
+        }
+      }
+
+      // Create a map for quick user lookup
+      const userMap = new Map(userProfiles.map(user => [user.id, user]));
+      
+      // Transform data to include user information
+      const installmentsWithUsers = (installmentData || []).map(installment => ({
+        ...installment,
+        user_name: userMap.get(installment.created_by)?.name || 'Usuário desconhecido',
+        user_avatar_url: userMap.get(installment.created_by)?.avatar_url
+      }));
+      
+      setInstallments(installmentsWithUsers);
     } catch (error) {
       console.error('Error fetching installments:', error);
     } finally {

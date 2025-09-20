@@ -1,13 +1,14 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Copy, Share, FileText, Download } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Copy, Share, FileText, Download, Users } from 'lucide-react';
 import { FinancialSummary } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
 
 interface ReportGeneratorProps {
   summary: FinancialSummary;
-  onGenerateReport: (type: 'full' | 'card', cardName?: string) => string;
+  onGenerateReport: (type: 'full' | 'card' | 'user', cardName?: string, userId?: string) => string;
 }
 
 export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGenerateReport }) => {
@@ -54,6 +55,22 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGen
 
   const handleShareCardWhatsApp = (cardName: string) => {
     const report = onGenerateReport('card', cardName);
+    const encodedReport = encodeURIComponent(report);
+    const whatsappUrl = `https://wa.me/?text=${encodedReport}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleCopyUserReport = (userId: string, userName: string) => {
+    const report = onGenerateReport('user', undefined, userId);
+    navigator.clipboard.writeText(report);
+    toast({
+      title: "Relatório do usuário copiado",
+      description: `O relatório de ${userName} foi copiado para a área de transferência.`,
+    });
+  };
+
+  const handleShareUserWhatsApp = (userId: string) => {
+    const report = onGenerateReport('user', undefined, userId);
     const encodedReport = encodeURIComponent(report);
     const whatsappUrl = `https://wa.me/?text=${encodedReport}`;
     window.open(whatsappUrl, '_blank');
@@ -136,6 +153,59 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGen
                     variant="outline"
                     size="sm"
                     onClick={() => handleShareCardWhatsApp(card.name)}
+                  >
+                    <Share className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Relatórios por Usuário
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Gere relatórios específicos para cada usuário.
+          </p>
+          
+          <div className="space-y-3">
+            {summary.users.map((user) => (
+              <div key={user.user_id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.user_avatar_url} />
+                    <AvatarFallback>
+                      {user.user_name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium">{user.user_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      R$ {user.total_spent.toFixed(2).replace('.', ',')} • {user.transaction_count} transações
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyUserReport(user.user_id, user.user_name)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShareUserWhatsApp(user.user_id)}
                   >
                     <Share className="w-4 h-4" />
                   </Button>

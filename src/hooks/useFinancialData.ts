@@ -17,6 +17,18 @@ export interface Transaction {
   is_recurring?: boolean;
   created_by: string;
   created_at: string;
+  user_name?: string;
+  user_avatar_url?: string;
+}
+
+export interface UserSummary {
+  user_id: string;
+  user_name: string;
+  user_avatar_url?: string;
+  total_spent: number;
+  transaction_count: number;
+  percentage: number;
+  transactions: Transaction[];
 }
 
 export interface CategorySummary {
@@ -48,8 +60,10 @@ export interface FinancialSummary {
   debitExpenses: number;
   categories: CategorySummary[];
   cards: CardSummary[];
+  users: UserSummary[];
   topCategories: CategorySummary[];
   topCard: CardSummary | null;
+  topUser: UserSummary | null;
 }
 
 export const useFinancialData = (groupId: string | null) => {
@@ -63,16 +77,42 @@ export const useFinancialData = (groupId: string | null) => {
 
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
+      // Fetch transactions
+      const { data: transactionData, error: transactionError } = await supabase
         .from('financial_transactions')
         .select('*')
         .eq('group_id', groupId)
         .order('date', { ascending: false });
 
-      if (error) throw error;
+      if (transactionError) throw transactionError;
 
-      setTransactions((data as Transaction[]) || []);
-      calculateSummary((data as Transaction[]) || []);
+      // Fetch user profiles for all unique created_by values
+      const uniqueUserIds = [...new Set((transactionData || []).map(t => t.created_by))];
+      
+      let userProfiles: any[] = [];
+      if (uniqueUserIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', uniqueUserIds);
+        
+        if (!profileError) {
+          userProfiles = profileData || [];
+        }
+      }
+
+      // Create a map for quick user lookup
+      const userMap = new Map(userProfiles.map(user => [user.id, user]));
+
+      // Transform data to include user information
+      const transactionsWithUsers = (transactionData || []).map(transaction => ({
+        ...transaction,
+        user_name: userMap.get(transaction.created_by)?.name || 'Usuário desconhecido',
+        user_avatar_url: userMap.get(transaction.created_by)?.avatar_url
+      }));
+
+      setTransactions(transactionsWithUsers as Transaction[]);
+      calculateSummary(transactionsWithUsers as Transaction[]);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -158,6 +198,29 @@ export const useFinancialData = (groupId: string | null) => {
       };
     }).sort((a, b) => b.total - a.total);
 
+    // Group by users
+    const userMap = new Map<string, Transaction[]>();
+    monthTransactions.forEach(t => {
+      const transactions = userMap.get(t.created_by) || [];
+      transactions.push(t);
+      userMap.set(t.created_by, transactions);
+    });
+
+    const users: UserSummary[] = Array.from(userMap.entries()).map(([userId, transactions]) => {
+      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const userName = transactions[0]?.user_name || 'Usuário desconhecido';
+      const userAvatarUrl = transactions[0]?.user_avatar_url;
+      return {
+        user_id: userId,
+        user_name: userName,
+        user_avatar_url: userAvatarUrl,
+        total_spent: total,
+        transaction_count: transactions.length,
+        percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
+        transactions
+      };
+    }).sort((a, b) => b.total_spent - a.total_spent);
+
     const summaryData: FinancialSummary = {
       totalExpenses,
       totalIncome: 0, // To be implemented with income tracking
@@ -170,8 +233,10 @@ export const useFinancialData = (groupId: string | null) => {
       debitExpenses,
       categories,
       cards,
+      users,
       topCategories: categories.slice(0, 3),
-      topCard: cards.length > 0 ? cards[0] : null
+      topCard: cards.length > 0 ? cards[0] : null,
+      topUser: users.length > 0 ? users[0] : null
     };
 
     setSummary(summaryData);
@@ -226,7 +291,7 @@ export const useFinancialData = (groupId: string | null) => {
     console.log('CSV parsing to be implemented', csvContent);
   };
 
-  const generateReport = (type: 'full' | 'card', cardName?: string) => {
+  const generateReport = (type: 'full' | 'card' | 'user', cardName?: string, userId?: string) => {
     if (!summary) return '';
 
     if (type === 'full') {
@@ -238,6 +303,11 @@ Total de Gastos: R$ ${summary.totalExpenses.toFixed(2).replace('.', ',')}
 Gastos no Crédito: R$ ${summary.totalCredit.toFixed(2).replace('.', ',')}
 Gastos no Débito: R$ ${summary.totalDebit.toFixed(2).replace('.', ',')}
 Gastos Fixos: R$ ${summary.totalFixed.toFixed(2).replace('.', ',')}
+
+👥 GASTOS POR USUÁRIO
+${summary.users.map((user, index) => 
+  `${index + 1}. ${user.user_name}: R$ ${user.total_spent.toFixed(2).replace('.', ',')} (${user.percentage.toFixed(1)}%) - ${user.transaction_count} transações`
+).join('\n')}
 
 📊 TOP 3 CATEGORIAS
 ${summary.topCategories.map((cat, index) => 
@@ -270,7 +340,23 @@ RELATÓRIO DO CARTÃO: ${card.name}
 
 📋 TRANSAÇÕES:
 ${card.transactions.map(t => 
-  `• ${new Date(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')}${t.installments ? ` (${t.installment_number}/${t.installments})` : ''}`
+  `• ${new Date(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')}${t.installments ? ` (${t.installment_number}/${t.installments})` : ''} - por ${t.user_name}`
+).join('\n')}
+      `.trim();
+    } else if (type === 'user' && userId) {
+      const userSummary = summary.users.find(u => u.user_id === userId);
+      if (!userSummary) return '';
+
+      return `
+RELATÓRIO DO USUÁRIO: ${userSummary.user_name}
+
+💰 Total Gasto: R$ ${userSummary.total_spent.toFixed(2).replace('.', ',')}
+📊 Percentual do Total: ${userSummary.percentage.toFixed(1)}%
+🔢 Número de Transações: ${userSummary.transaction_count}
+
+📋 TRANSAÇÕES:
+${userSummary.transactions.map(t => 
+  `• ${new Date(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')} (${t.category} • ${t.card_name})`
 ).join('\n')}
       `.trim();
     }

@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, CreditCard, Calendar, CheckCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronLeft, ChevronRight, CreditCard, Calendar, CheckCircle, Users, User } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 import { useCardConfigurations } from '@/hooks/useCardConfigurations';
@@ -20,8 +22,9 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [selectedUser, setSelectedUser] = useState<string>('all');
   
-  const { transactions } = useFinancialData(groupId);
+  const { transactions, summary } = useFinancialData(groupId);
   const { installments, markInstallmentAsPaid } = useInstallmentTracking(groupId);
   const { configurations } = useCardConfigurations(groupId);
 
@@ -57,13 +60,16 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
   };
 
   const getMonthlyTransactions = () => {
-    return transactions.filter(transaction => {
+    const filtered = transactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      return (
+      const matchesDate = (
         transactionDate.getMonth() + 1 === selectedMonth &&
         transactionDate.getFullYear() === selectedYear
       );
+      const matchesUser = selectedUser === 'all' || transaction.created_by === selectedUser;
+      return matchesDate && matchesUser;
     });
+    return filtered;
   };
 
   const getCreditCardBills = () => {
@@ -105,6 +111,35 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
   const totalMonthlyExpenses = monthlyTransactions.reduce((sum, t) => sum + t.amount, 0) +
     monthlyInstallments.reduce((sum, i) => sum + i.amount, 0);
 
+  // Get unique users for filter
+  const uniqueUsers = summary?.users || [];
+
+  // Get user spending for current month and filter
+  const getUserSpending = () => {
+    if (!summary) return [];
+    
+    return summary.users.map(user => {
+      const userMonthlyTransactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return (
+          transactionDate.getMonth() + 1 === selectedMonth &&
+          transactionDate.getFullYear() === selectedYear &&
+          t.created_by === user.user_id
+        );
+      });
+      
+      const userMonthlyTotal = userMonthlyTransactions.reduce((sum, t) => sum + t.amount, 0);
+      
+      return {
+        ...user,
+        monthly_total: userMonthlyTotal,
+        monthly_transactions: userMonthlyTransactions.length
+      };
+    }).filter(user => user.monthly_total > 0);
+  };
+
+  const userSpending = getUserSpending();
+
   return (
     <div className="space-y-6">
       {/* Month Navigation */}
@@ -144,6 +179,67 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
           <p className="text-2xl font-bold">{formatCurrency(totalMonthlyExpenses)}</p>
         </div>
       </div>
+
+      {/* User Filter */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Filtrar por usuário:</span>
+        </div>
+        <Select value={selectedUser} onValueChange={setSelectedUser}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Todos os usuários" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os usuários</SelectItem>
+            {uniqueUsers.map((user) => (
+              <SelectItem key={user.user_id} value={user.user_id}>
+                {user.user_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* User Spending Summary */}
+      {userSpending.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Gastos por Usuário - {MONTHS[selectedMonth - 1]}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {userSpending.map((user) => (
+                <div
+                  key={user.user_id}
+                  className="p-4 rounded-lg border bg-muted/50"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.user_avatar_url} />
+                      <AvatarFallback>
+                        {user.user_name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-medium">{user.user_name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {user.monthly_transactions} transações
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xl font-bold text-primary">
+                    {formatCurrency(user.monthly_total)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Credit Card Bills */}
       {creditCardBills.length > 0 && (
@@ -210,10 +306,22 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Parcela {installment.installment_number} de {installment.total_installments} 
-                        {transaction && ` • ${transaction.card_name}`}
-                      </p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>
+                          Parcela {installment.installment_number} de {installment.total_installments}
+                          {transaction && ` • ${transaction.card_name}`}
+                        </span>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <Avatar className="h-4 w-4">
+                            <AvatarImage src={installment.user_avatar_url} />
+                            <AvatarFallback className="text-xs">
+                              {(installment.user_name || 'U').substring(0, 1)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{installment.user_name}</span>
+                        </div>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -252,11 +360,21 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
                   key={transaction.id}
                   className="flex items-center justify-between p-3 rounded-lg border"
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium">{transaction.description}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {transaction.category} • {transaction.card_name}
-                    </p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{transaction.category} • {transaction.card_name}</span>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={transaction.user_avatar_url} />
+                          <AvatarFallback className="text-xs">
+                            {(transaction.user_name || 'U').substring(0, 1)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{transaction.user_name}</span>
+                      </div>
+                    </div>
                   </div>
                   <p className="font-bold">
                     {formatCurrency(transaction.amount)}
