@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, CheckCircle, AlertCircle, Brain, FileText, TrendingUp, Search } from 'lucide-react';
+import { Upload, Download, CheckCircle, AlertCircle, Brain, FileText, TrendingUp, Search, CreditCard, AlertTriangle } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ImportConfirmationModal } from './ImportConfirmationModal';
 
 interface CSVImportProps {
   groupId: string;
@@ -33,6 +34,7 @@ interface FinancialOverview {
     saldo: number | null;
     total_fixos: number | null;
     total_gastos_mes: number | null;
+    total_cartao: number | null;
   };
   categorias: Array<{
     nome: string;
@@ -40,11 +42,24 @@ interface FinancialOverview {
     valor_gasto: number | null;
     porcentagem: number | null;
   }>;
+  cartoes: Array<{
+    nome: string;
+    total: number;
+    transacoes: Array<{
+      descricao: string;
+      valor: number;
+      parcelas?: string;
+      categoria?: string;
+      data?: string;
+    }>;
+  }>;
   analises: {
     saldo_status: 'positivo' | 'negativo' | 'neutro';
     categorias_estouradas: string[];
     maior_gasto: string;
     percentual_usado_orcamento: number | null;
+    cartao_mais_usado?: string;
+    alertas?: string[];
   };
 }
 
@@ -57,6 +72,8 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [csvContent, setCsvContent] = useState<string>('');
   const [financialOverview, setFinancialOverview] = useState<FinancialOverview | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<any>(null);
   const { addTransaction } = useFinancialData(groupId);
 
   const parseCSVContent = (content: string): ParsedTransaction[] => {
@@ -287,6 +304,44 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
   const handleImport = async () => {
     if (!file) return;
 
+    // Primeiro fazer análise financeira
+    setIsAnalyzing(true);
+    const text = await file.text();
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-csv', {
+        body: {
+          csvContent: text,
+          analysisType: 'financial-overview'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.analysis) {
+        try {
+          const parsedAnalysis = JSON.parse(data.analysis);
+          setConfirmationData(parsedAnalysis);
+          setShowConfirmation(true);
+        } catch (parseError) {
+          console.error('Erro ao fazer parse da análise:', parseError);
+          // Fallback para importação direta
+          await importDirectly();
+        }
+      } else {
+        await importDirectly();
+      }
+    } catch (error) {
+      console.error('Erro na análise:', error);
+      await importDirectly();
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const importDirectly = async () => {
+    if (!file) return;
+    
     setImporting(true);
     setProgress(0);
 
@@ -313,11 +368,73 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
       onSuccess();
       setFile(null);
       setPreview([]);
+      setShowConfirmation(false);
     } catch (error) {
       console.error('Error importing CSV:', error);
       toast({
         title: "Erro na importação",
         description: "Não foi possível importar o arquivo CSV.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      setProgress(0);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!confirmationData) return;
+    
+    setImporting(true);
+    setProgress(0);
+    
+    try {
+      // Extrair transações dos dados analisados
+      const transactions: ParsedTransaction[] = [];
+      
+      // Adicionar transações dos cartões
+      if (confirmationData.cartoes) {
+        confirmationData.cartoes.forEach((cartao: any) => {
+          if (cartao.transacoes) {
+            cartao.transacoes.forEach((transacao: any) => {
+              transactions.push({
+                description: transacao.descricao || 'Transação sem descrição',
+                amount: transacao.valor || 0,
+                date: transacao.data || new Date().toISOString().split('T')[0],
+                category: transacao.categoria || 'Outros',
+                card_name: cartao.nome,
+                card_type: 'credit'
+              });
+            });
+          }
+        });
+      }
+
+      // Import transactions
+      for (let i = 0; i < transactions.length; i++) {
+        const transaction = transactions[i];
+        await addTransaction({
+          group_id: groupId,
+          ...transaction
+        });
+        
+        setProgress(((i + 1) / transactions.length) * 100);
+      }
+
+      toast({
+        title: "Importação concluída",
+        description: `${transactions.length} transações foram importadas com sucesso.`,
+      });
+
+      onSuccess();
+      setFile(null);
+      setPreview([]);
+      setShowConfirmation(false);
+    } catch (error) {
+      console.error('Erro ao confirmar importação:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao processar importação",
         variant: "destructive",
       });
     } finally {
@@ -369,8 +486,8 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                 <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
                 <span className="text-sm font-medium">{file.name}</span>
               </div>
-              <Button onClick={handleImport} size="sm">
-                Importar
+              <Button onClick={handleImport} size="sm" disabled={importing || isAnalyzing}>
+                {isAnalyzing ? "Analisando..." : importing ? "Importando..." : "Analisar e Importar"}
               </Button>
             </div>
           )}
@@ -484,12 +601,18 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                           <p className="text-2xl font-bold">R$ {financialOverview.totais.total_fixos.toFixed(2)}</p>
                         </div>
                       )}
-                      {financialOverview.totais.total_gastos_mes !== null && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Gastos do Mês</p>
-                          <p className="text-2xl font-bold">R$ {financialOverview.totais.total_gastos_mes.toFixed(2)}</p>
-                        </div>
-                      )}
+                       {financialOverview.totais.total_gastos_mes !== null && (
+                         <div className="space-y-1">
+                           <p className="text-sm text-muted-foreground">Gastos do Mês</p>
+                           <p className="text-2xl font-bold">R$ {financialOverview.totais.total_gastos_mes.toFixed(2)}</p>
+                         </div>
+                       )}
+                       {financialOverview.totais.total_cartao !== null && (
+                         <div className="space-y-1">
+                           <p className="text-sm text-muted-foreground">Total Cartão</p>
+                           <p className="text-2xl font-bold text-blue-600">R$ {financialOverview.totais.total_cartao.toFixed(2)}</p>
+                         </div>
+                       )}
                     </div>
                   </CardContent>
                 </Card>
@@ -550,7 +673,53 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                           ))}
                         </div>
                       </div>
-                    )}
+                 )}
+
+                 {/* Cartões de Crédito Card */}
+                 {financialOverview.cartoes && financialOverview.cartoes.length > 0 && (
+                   <Card>
+                     <CardHeader>
+                       <CardTitle className="flex items-center gap-2">
+                         <CreditCard className="h-4 w-4" />
+                         Cartões de Crédito ({financialOverview.cartoes.length})
+                       </CardTitle>
+                     </CardHeader>
+                     <CardContent>
+                       <div className="space-y-4">
+                         {financialOverview.cartoes.map((cartao, index) => (
+                           <div key={index} className="border rounded-lg p-4">
+                             <div className="flex justify-between items-center mb-2">
+                               <h4 className="font-medium">{cartao.nome}</h4>
+                               <Badge variant="outline" className="text-blue-600 font-semibold">
+                                 R$ {cartao.total.toFixed(2)}
+                               </Badge>
+                             </div>
+                             {cartao.transacoes && cartao.transacoes.length > 0 && (
+                               <div className="space-y-1">
+                                 <p className="text-sm text-muted-foreground mb-2">
+                                   {cartao.transacoes.length} transações encontradas:
+                                 </p>
+                                 <div className="max-h-32 overflow-y-auto space-y-1">
+                                   {cartao.transacoes.slice(0, 3).map((transacao, tIndex) => (
+                                     <div key={tIndex} className="text-xs bg-muted p-2 rounded flex justify-between">
+                                       <span>{transacao.descricao}</span>
+                                       <span className="font-medium">R$ {transacao.valor.toFixed(2)}</span>
+                                     </div>
+                                   ))}
+                                   {cartao.transacoes.length > 3 && (
+                                     <p className="text-xs text-muted-foreground text-center py-1">
+                                       ... e mais {cartao.transacoes.length - 3} transações
+                                     </p>
+                                   )}
+                                 </div>
+                               </div>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     </CardContent>
+                   </Card>
+                 )}
                     
                     {financialOverview.analises.maior_gasto && (
                       <div>
@@ -571,7 +740,28 @@ export const CSVImport: React.FC<CSVImportProps> = ({ groupId, onSuccess }) => {
                 </Card>
               </div>
             )}
+                     
+                     {financialOverview.analises.cartao_mais_usado && (
+                       <div>
+                         <p className="text-sm text-muted-foreground">
+                           Cartão mais utilizado: <span className="font-medium">{financialOverview.analises.cartao_mais_usado}</span>
+                         </p>
+                       </div>
+                     )}
 
+                     {financialOverview.analises.alertas && financialOverview.analises.alertas.length > 0 && (
+                       <div>
+                         <p className="text-sm font-medium text-amber-600 mb-2">Alertas importantes:</p>
+                         <div className="space-y-1">
+                           {financialOverview.analises.alertas.map((alerta, index) => (
+                             <div key={index} className="text-sm text-amber-800 bg-amber-50 p-2 rounded flex items-start gap-2">
+                               <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                               {alerta}
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
             {/* Analysis Results */}
             {aiAnalysis && (
               <Card className="mt-4">
@@ -667,6 +857,14 @@ Bolsa Maternidade,2/4,17/08,Necessidades,"R$ 47,49",`;
           </Button>
         </CardContent>
       </Card>
+
+      <ImportConfirmationModal
+        open={showConfirmation}
+        onOpenChange={setShowConfirmation}
+        data={confirmationData}
+        onConfirm={handleConfirmImport}
+        onCancel={() => setShowConfirmation(false)}
+      />
     </div>
   );
 };

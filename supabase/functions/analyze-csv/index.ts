@@ -87,30 +87,48 @@ TAREFAS:
 1. Identifique e separe as seções:
    - Total de Gastos e Saldo (valores como "Total de Gastos: R$ 2.293,17", "Saldo: -R$ 293,17")
    - Gastos Fixos e Gastos do Mês
-   - Tabela de Categorias (com colunas: Categoria, Valor esperado, Valor gasto, Porcentagem)
+   - Categorias das colunas P3:P18 (Mercado, Despesas eventuais, Necessidades, Roupas, Saúde, Presentes, Beleza, Educação, Lazer, Eletrônicos, Assinaturas, 99/Transporte, IFood/Restaurante, Aluguel, Contas)
+   - Cartões de crédito e seus totais (Nubank, Magalu, Renner, Carrefour, Banrisul, etc.)
 
-2. Limpe os valores numéricos:
+2. Extraia informações dos cartões:
+   - Nome do cartão e total gasto
+   - Transações individuais com parcelas se disponível
+   - Categorias dos gastos por cartão
+
+3. Limpe os valores numéricos:
    - Converta "R$ 2.293,17" em 2293.17
    - Converta "-R$ 293,17" em -293.17
    - Ignore células vazias ou "#ERROR!"
    - Trate pontos como separadores de milhares e vírgulas como decimais
 
-3. RESPONDA APENAS COM UM JSON VÁLIDO neste formato exato:
+4. RESPONDA APENAS COM UM JSON VÁLIDO neste formato exato:
 {
   "totais": {
     "total_gastos": número ou null,
     "saldo": número ou null,
     "total_fixos": número ou null,
-    "total_gastos_mes": número ou null
+    "total_gastos_mes": número ou null,
+    "total_cartao": número ou null
   },
   "categorias": [
     {"nome": "string", "valor_esperado": número ou null, "valor_gasto": número ou null, "porcentagem": número ou null}
+  ],
+  "cartoes": [
+    {
+      "nome": "string",
+      "total": número,
+      "transacoes": [
+        {"descricao": "string", "valor": número, "parcelas": "string ou null", "categoria": "string ou null", "data": "string ou null"}
+      ]
+    }
   ],
   "analises": {
     "saldo_status": "positivo/negativo/neutro",
     "categorias_estouradas": ["nome das categorias que estouraram"],
     "maior_gasto": "nome da categoria com maior gasto",
-    "percentual_usado_orcamento": número ou null
+    "percentual_usado_orcamento": número ou null,
+    "cartao_mais_usado": "nome do cartão com maior gasto",
+    "alertas": ["lista de alertas importantes"]
   }
 }
 
