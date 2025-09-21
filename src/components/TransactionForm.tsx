@@ -72,18 +72,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
         is_recurring: formData.is_recurring,
       };
 
-      console.log('TransactionForm - transactionData:', transactionData);
-      console.log('TransactionForm - editingTransaction:', editingTransaction);
-
       let result;
       if (editingTransaction) {
-        console.log('TransactionForm - Updating transaction with id:', editingTransaction.id);
         result = await updateTransaction(editingTransaction.id, transactionData);
-        console.log('TransactionForm - Update result:', result);
       } else {
-        console.log('TransactionForm - Adding new transaction');
         result = await addTransaction(transactionData);
-        console.log('TransactionForm - Add result:', result);
         
         // If it's a new credit card transaction with installments, create installment tracking
         if (result && typeof result === 'object' && result.success && result.data && formData.card_type === 'credit' && installments && installments > 1) {
@@ -101,7 +94,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
         }
       }
 
-      console.log('TransactionForm - Final result check:', result, result?.success);
       if (result && result.success) {
         onSuccess();
         onClose();
@@ -162,13 +154,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
                     mode="single"
                     selected={formData.date}
                     onSelect={(date) => {
+                      console.log('Calendar - Selected date:', date);
                       if (date) {
+                        console.log('Calendar - Setting new date:', date);
                         setFormData(prev => ({ ...prev, date }));
                         setShowDatePicker(false);
                       }
                     }}
                     locale={ptBR}
                     initialFocus
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>

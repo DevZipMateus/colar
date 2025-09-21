@@ -303,12 +303,10 @@ export const useFinancialData = (groupId: string | null) => {
 
   const updateTransaction = async (id: string, transactionData: Partial<Omit<Transaction, 'id' | 'created_at' | 'created_by'>>) => {
     if (!user || !groupId) {
-      console.log('updateTransaction - No user or groupId:', { user: !!user, groupId });
       return { success: false, data: null };
     }
 
     try {
-      console.log('updateTransaction - Starting update:', { id, transactionData });
       const { data, error } = await supabase
         .from('financial_transactions')
         .update({
@@ -319,8 +317,6 @@ export const useFinancialData = (groupId: string | null) => {
         .eq('group_id', groupId)
         .select()
         .single();
-
-      console.log('updateTransaction - Supabase response:', { data, error });
 
       if (error) throw error;
 
@@ -345,7 +341,6 @@ export const useFinancialData = (groupId: string | null) => {
         title: "Transação atualizada",
         description: "A transação foi atualizada com sucesso.",
       });
-      console.log('updateTransaction - Success:', { success: true, data });
       return { success: true, data };
     } catch (error) {
       console.error('Error updating transaction:', error);
