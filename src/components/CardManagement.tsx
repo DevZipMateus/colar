@@ -403,12 +403,14 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
                       <TableCell className="font-bold text-red-600">
                         {formatCurrency(transaction.amount)}
                       </TableCell>
-                      <TableCell>
-                        {transaction.installments ? 
-                          `${transaction.installment_number}/${transaction.installments}` : 
-                          'À vista'
-                        }
-                      </TableCell>
+                       <TableCell>
+                         {transaction.installment_info ? 
+                           `${transaction.installment_info.current_installment}/${transaction.installment_info.total_installments}` : 
+                           transaction.installments ? 
+                           `${transaction.installment_number}/${transaction.installments}` : 
+                           'À vista'
+                         }
+                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

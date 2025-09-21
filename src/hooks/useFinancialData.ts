@@ -20,6 +20,12 @@ export interface Transaction {
   created_at: string;
   user_name?: string;
   user_avatar_url?: string;
+  // Informações de parcelas vindas do installment_tracking
+  installment_info?: {
+    current_installment: number;
+    total_installments: number;
+    monthly_amount: number;
+  };
 }
 
 export interface UserSummary {
@@ -122,12 +128,38 @@ export const useFinancialData = (groupId: string | null) => {
       // Create a map for quick user lookup
       const userMap = new Map(userProfiles.map(user => [user.id, user]));
 
-      // Transform data to include user information
-      const transactionsWithUsers = (transactionData || []).map(transaction => ({
-        ...transaction,
-        user_name: userMap.get(transaction.created_by)?.name || 'Usuário desconhecido',
-        user_avatar_url: userMap.get(transaction.created_by)?.avatar_url
-      }));
+      // Create installment info map
+      const installmentMap = new Map();
+      (installmentData || []).forEach(installment => {
+        const key = installment.transaction_id;
+        if (!installmentMap.has(key)) {
+          installmentMap.set(key, []);
+        }
+        installmentMap.get(key).push(installment);
+      });
+
+      // Transform data to include user information and installment info
+      const transactionsWithUsers = (transactionData || []).map(transaction => {
+        const installments = installmentMap.get(transaction.id) || [];
+        let installment_info = undefined;
+        
+        // Se tem parcelas, pegar informações da primeira parcela para exibição
+        if (installments.length > 0) {
+          const firstInstallment = installments[0];
+          installment_info = {
+            current_installment: firstInstallment.installment_number,
+            total_installments: firstInstallment.total_installments,
+            monthly_amount: firstInstallment.amount
+          };
+        }
+
+        return {
+          ...transaction,
+          user_name: userMap.get(transaction.created_by)?.name || 'Usuário desconhecido',
+          user_avatar_url: userMap.get(transaction.created_by)?.avatar_url,
+          installment_info
+        };
+      });
 
       setTransactions(transactionsWithUsers as Transaction[]);
       calculateSummary(transactionsWithUsers as Transaction[], installmentData || []);
@@ -234,11 +266,11 @@ export const useFinancialData = (groupId: string | null) => {
       };
     }).sort((a, b) => b.total - a.total);
 
-    // Group by cards (including installments)
+    // Group by cards (including installments) - Use ALL transactions for card management
     const cardMap = new Map<string, { transactions: Transaction[], installmentAmount: number, type: 'credit' | 'debit' }>();
     
-    // Add regular transactions
-    monthTransactions.forEach(t => {
+    // Add ALL transactions (not just monthly) for complete card management view
+    transactionData.forEach(t => {
       const entry = cardMap.get(t.card_name) || { transactions: [], installmentAmount: 0, type: t.card_type };
       entry.transactions.push(t);
       cardMap.set(t.card_name, entry);
@@ -259,14 +291,24 @@ export const useFinancialData = (groupId: string | null) => {
     });
 
     const cards: CardSummary[] = Array.from(cardMap.entries()).map(([name, data]) => {
-      const transactionTotal = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const total = transactionTotal + data.installmentAmount;
+      // For card total, we want the monthly amount for monthly view, but we keep all transactions for card management
+      const monthlyTransactionsForCard = data.transactions.filter(t => {
+        const transactionDate = parseDateOnly(t.date);
+        const isCurrentMonth = transactionDate.getMonth() === currentMonth && 
+                              transactionDate.getFullYear() === currentYear;
+        const isNotMultiInstallment = !t.installments || t.installments <= 1;
+        return isCurrentMonth && isNotMultiInstallment;
+      });
+      
+      const monthlyTotal = monthlyTransactionsForCard.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const total = monthlyTotal + data.installmentAmount;
+      
       return {
         name,
         type: data.type,
         total,
         percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-        transactions: data.transactions
+        transactions: data.transactions // Keep ALL transactions for card management
       };
     }).sort((a, b) => b.total - a.total);
 

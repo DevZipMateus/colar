@@ -237,11 +237,15 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                       <Badge variant={transaction.card_type === 'credit' ? 'destructive' : 'default'} className="text-xs">
                         {transaction.card_type === 'credit' ? 'Crédito' : 'Débito'}
                       </Badge>
-                      {transaction.installments && transaction.installment_number && (
-                        <Badge variant="secondary" className="text-xs">
-                          {transaction.installment_number}/{transaction.installments}
-                        </Badge>
-                      )}
+                       {transaction.installment_info ? (
+                         <Badge variant="secondary" className="text-xs">
+                           {transaction.installment_info.current_installment}/{transaction.installment_info.total_installments}
+                         </Badge>
+                       ) : transaction.installments && transaction.installment_number ? (
+                         <Badge variant="secondary" className="text-xs">
+                           {transaction.installment_number}/{transaction.installments}
+                         </Badge>
+                       ) : null}
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>{transaction.card_name} • {transaction.user_name}</span>
@@ -344,15 +348,19 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                               {transaction.card_type === 'credit' ? 'Crédito' : 'Débito'}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            {transaction.installments && transaction.installment_number ? (
-                              <span className="text-sm">
-                                {transaction.installment_number}/{transaction.installments}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
+                           <TableCell>
+                             {transaction.installment_info ? (
+                               <span className="text-sm">
+                                 {transaction.installment_info.current_installment}/{transaction.installment_info.total_installments}
+                               </span>
+                             ) : transaction.installments && transaction.installment_number ? (
+                               <span className="text-sm">
+                                 {transaction.installment_number}/{transaction.installments}
+                               </span>
+                             ) : (
+                               <span className="text-muted-foreground">À vista</span>
+                             )}
+                           </TableCell>
                           <TableCell>
                             <span className="text-sm">{transaction.user_name}</span>
                           </TableCell>
