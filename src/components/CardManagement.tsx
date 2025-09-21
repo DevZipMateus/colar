@@ -62,8 +62,10 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
   const formatCurrency = (value: number) => 
     `R$ ${value.toFixed(2).replace('.', ',')}`;
 
+  const normalize = (s: string) => s.trim().toLowerCase();
+
   const cardsToShow: CardSummary[] = configurations.map((config) => {
-    const cardInSummary = summary.cards.find((c) => c.name === config.card_name);
+    const cardInSummary = summary.cards.find((c) => normalize(c.name) === normalize(config.card_name));
     const total = cardInSummary?.total || 0;
     const percentage = summary.totalExpenses > 0 ? (total / summary.totalExpenses) * 100 : 0;
     const transactions = cardInSummary?.transactions || [];
