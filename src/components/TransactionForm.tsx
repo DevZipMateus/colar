@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
-import { useExpenseCategories } from '@/hooks/useExpenseCategories';
+import { useExpenseCategories, ExpenseCategory } from '@/hooks/useExpenseCategories';
 import { toast } from '@/hooks/use-toast';
 
 interface TransactionFormProps {
@@ -25,6 +25,7 @@ interface TransactionFormProps {
 export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editingTransaction, onClose, onSuccess }) => {
   const { addTransaction, updateTransaction } = useFinancialData(groupId);
   const { createInstallments } = useInstallmentTracking(groupId);
+  const { categories } = useExpenseCategories(groupId);
   const [formData, setFormData] = useState({
     description: editingTransaction?.description || '',
     amount: editingTransaction?.amount?.toString() || '',
@@ -37,12 +38,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const categories = [
-    'Assinaturas', 'Saúde', 'Necessidades', 'Presentes', 'Eletrônicos', 
-    'Contas', 'Mercado', 'Transporte', 'Alimentação', 'Lazer', 'Beleza', 
-    'Educação', 'Aluguel', 'Roupas'
-  ];
 
   const cards = [
     'Nubank', 'Magalu', 'Renner', 'Carrefour', 'Inter', 'Itaú', 
@@ -178,9 +173,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                  <SelectContent>
-                   {categories.map(category => (
-                     <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                   ))}
+                    {categories.map((category: ExpenseCategory) => (
+                      <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                    ))}
                  </SelectContent>
               </Select>
             </div>

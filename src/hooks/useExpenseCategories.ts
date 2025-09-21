@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActivityFeed } from './useActivityFeed';
 
-interface ExpenseCategory {
+export interface ExpenseCategory {
   id: string;
   group_id: string;
   name: string;
