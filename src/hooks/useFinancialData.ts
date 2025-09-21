@@ -87,6 +87,23 @@ export const useFinancialData = (groupId: string | null) => {
 
       if (transactionError) throw transactionError;
 
+      // Fetch installment data
+      const { data: installmentData, error: installmentError } = await supabase
+        .from('installment_tracking')
+        .select(`
+          *,
+          profiles:created_by (
+            id,
+            name,
+            avatar_url
+          )
+        `)
+        .eq('group_id', groupId);
+
+      if (installmentError) {
+        console.error('Error fetching installments:', installmentError);
+      }
+
       // Fetch user profiles for all unique created_by values
       const uniqueUserIds = [...new Set((transactionData || []).map(t => t.created_by))];
       
@@ -113,7 +130,7 @@ export const useFinancialData = (groupId: string | null) => {
       }));
 
       setTransactions(transactionsWithUsers as Transaction[]);
-      calculateSummary(transactionsWithUsers as Transaction[]);
+      calculateSummary(transactionsWithUsers as Transaction[], installmentData || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -126,24 +143,47 @@ export const useFinancialData = (groupId: string | null) => {
     }
   };
 
-  const calculateSummary = (transactionData: Transaction[]) => {
+  const calculateSummary = (transactionData: Transaction[], installmentData: any[] = []) => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
-    const monthTransactions = transactionData.filter(t => {
-      const transactionDate = parseDateOnly(t.date);
-      return transactionDate.getMonth() === currentMonth && 
-             transactionDate.getFullYear() === currentYear;
+    // Filter monthly installments (these represent the actual monthly expenses for installment purchases)
+    const monthlyInstallments = installmentData.filter(installment => {
+      return installment.due_month === currentMonth + 1 && installment.due_year === currentYear;
     });
 
-    // Calculate totals
-    const totalExpenses = monthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    // Filter non-installment transactions (or single installments) for the current month
+    const monthTransactions = transactionData.filter(t => {
+      const transactionDate = parseDateOnly(t.date);
+      const isCurrentMonth = transactionDate.getMonth() === currentMonth && 
+                            transactionDate.getFullYear() === currentYear;
+      // Only include transactions that are not multi-installment purchases
+      const isNotMultiInstallment = !t.installments || t.installments <= 1;
+      return isCurrentMonth && isNotMultiInstallment;
+    });
+
+    // Calculate totals from regular transactions
+    const regularExpenses = monthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    
+    // Calculate totals from installments
+    const installmentExpenses = monthlyInstallments.reduce((sum, installment) => sum + Math.abs(installment.amount), 0);
+    
+    const totalExpenses = regularExpenses + installmentExpenses;
+    // Get credit card installments
+    const creditInstallments = monthlyInstallments.filter(installment => {
+      const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
+      return originalTransaction?.card_type === 'credit';
+    });
+    
     const totalCredit = monthTransactions
       .filter(t => t.card_type === 'credit')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0) +
+      creditInstallments.reduce((sum, installment) => sum + Math.abs(installment.amount), 0);
+      
     const totalDebit = monthTransactions
       .filter(t => t.card_type === 'debit')
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      
     const totalFixed = monthTransactions
       .filter(t => t.is_recurring)
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
@@ -151,74 +191,125 @@ export const useFinancialData = (groupId: string | null) => {
     // Calculate specific expense categories for the new breakdown
     const fixedExpenses = monthTransactions
       .filter(t => ['Aluguel', 'Contas', 'Assinaturas'].includes(t.category))
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0) +
+      monthlyInstallments
+        .filter(installment => {
+          const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
+          return ['Aluguel', 'Contas', 'Assinaturas'].includes(originalTransaction?.category || '');
+        })
+        .reduce((sum, installment) => sum + Math.abs(installment.amount), 0);
 
-    const creditCardExpenses = monthTransactions
-      .filter(t => t.card_type === 'credit')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const creditCardExpenses = totalCredit;
 
-    const debitExpenses = monthTransactions
-      .filter(t => t.card_type === 'debit')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const debitExpenses = totalDebit;
 
-    // Group by categories
-    const categoryMap = new Map<string, Transaction[]>();
+    // Group by categories (including installments)
+    const categoryMap = new Map<string, { transactions: Transaction[], installmentAmount: number }>();
+    
+    // Add regular transactions
     monthTransactions.forEach(t => {
-      const transactions = categoryMap.get(t.category) || [];
-      transactions.push(t);
-      categoryMap.set(t.category, transactions);
+      const entry = categoryMap.get(t.category) || { transactions: [], installmentAmount: 0 };
+      entry.transactions.push(t);
+      categoryMap.set(t.category, entry);
     });
 
-    const categories: CategorySummary[] = Array.from(categoryMap.entries()).map(([name, transactions]) => {
-      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    // Add installment amounts by category
+    monthlyInstallments.forEach(installment => {
+      const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
+      if (originalTransaction) {
+        const entry = categoryMap.get(originalTransaction.category) || { transactions: [], installmentAmount: 0 };
+        entry.installmentAmount += Math.abs(installment.amount);
+        categoryMap.set(originalTransaction.category, entry);
+      }
+    });
+
+    const categories: CategorySummary[] = Array.from(categoryMap.entries()).map(([name, data]) => {
+      const transactionTotal = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const total = transactionTotal + data.installmentAmount;
       return {
         name,
         total,
         percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-        transactions
+        transactions: data.transactions
       };
     }).sort((a, b) => b.total - a.total);
 
-    // Group by cards
-    const cardMap = new Map<string, Transaction[]>();
+    // Group by cards (including installments)
+    const cardMap = new Map<string, { transactions: Transaction[], installmentAmount: number, type: 'credit' | 'debit' }>();
+    
+    // Add regular transactions
     monthTransactions.forEach(t => {
-      const transactions = cardMap.get(t.card_name) || [];
-      transactions.push(t);
-      cardMap.set(t.card_name, transactions);
+      const entry = cardMap.get(t.card_name) || { transactions: [], installmentAmount: 0, type: t.card_type };
+      entry.transactions.push(t);
+      cardMap.set(t.card_name, entry);
     });
 
-    const cards: CardSummary[] = Array.from(cardMap.entries()).map(([name, transactions]) => {
-      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const type = transactions[0]?.card_type || 'credit';
+    // Add installment amounts by card
+    monthlyInstallments.forEach(installment => {
+      const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
+      if (originalTransaction) {
+        const entry = cardMap.get(originalTransaction.card_name) || { 
+          transactions: [], 
+          installmentAmount: 0, 
+          type: originalTransaction.card_type 
+        };
+        entry.installmentAmount += Math.abs(installment.amount);
+        cardMap.set(originalTransaction.card_name, entry);
+      }
+    });
+
+    const cards: CardSummary[] = Array.from(cardMap.entries()).map(([name, data]) => {
+      const transactionTotal = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const total = transactionTotal + data.installmentAmount;
       return {
         name,
-        type,
+        type: data.type,
         total,
         percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-        transactions
+        transactions: data.transactions
       };
     }).sort((a, b) => b.total - a.total);
 
-    // Group by users
-    const userMap = new Map<string, Transaction[]>();
+    // Group by users (including installments)
+    const userMap = new Map<string, { transactions: Transaction[], installmentAmount: number, name: string, avatarUrl?: string }>();
+    
+    // Add regular transactions
     monthTransactions.forEach(t => {
-      const transactions = userMap.get(t.created_by) || [];
-      transactions.push(t);
-      userMap.set(t.created_by, transactions);
+      const entry = userMap.get(t.created_by) || { 
+        transactions: [], 
+        installmentAmount: 0, 
+        name: t.user_name || 'Usuário desconhecido',
+        avatarUrl: t.user_avatar_url
+      };
+      entry.transactions.push(t);
+      userMap.set(t.created_by, entry);
     });
 
-    const users: UserSummary[] = Array.from(userMap.entries()).map(([userId, transactions]) => {
-      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const userName = transactions[0]?.user_name || 'Usuário desconhecido';
-      const userAvatarUrl = transactions[0]?.user_avatar_url;
+    // Add installment amounts by user
+    monthlyInstallments.forEach(installment => {
+      const profileName = installment.profiles?.name || 'Usuário desconhecido';
+      const profileAvatar = installment.profiles?.avatar_url;
+      const entry = userMap.get(installment.created_by) || { 
+        transactions: [], 
+        installmentAmount: 0, 
+        name: profileName,
+        avatarUrl: profileAvatar
+      };
+      entry.installmentAmount += Math.abs(installment.amount);
+      userMap.set(installment.created_by, entry);
+    });
+
+    const users: UserSummary[] = Array.from(userMap.entries()).map(([userId, data]) => {
+      const transactionTotal = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const total = transactionTotal + data.installmentAmount;
       return {
         user_id: userId,
-        user_name: userName,
-        user_avatar_url: userAvatarUrl,
+        user_name: data.name,
+        user_avatar_url: data.avatarUrl,
         total_spent: total,
-        transaction_count: transactions.length,
+        transaction_count: data.transactions.length,
         percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-        transactions
+        transactions: data.transactions
       };
     }).sort((a, b) => b.total_spent - a.total_spent);
 
