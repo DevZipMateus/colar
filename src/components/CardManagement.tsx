@@ -19,7 +19,7 @@ interface CardManagementProps {
 
 export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
   const { summary, loading, generateReport } = useFinancialData(groupId);
-  const { configurations, createConfiguration, updateConfiguration } = useCardConfigurations(groupId);
+  const { configurations, createConfiguration, updateConfiguration, deleteConfiguration } = useCardConfigurations(groupId);
   const [selectedCard, setSelectedCard] = useState<CardSummary | null>(null);
   const [showAddCard, setShowAddCard] = useState(false);
   const [editingCard, setEditingCard] = useState<string | null>(null);
@@ -61,6 +61,20 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
 
   const formatCurrency = (value: number) => 
     `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+  const cardsToShow: CardSummary[] = configurations.map((config) => {
+    const cardInSummary = summary.cards.find((c) => c.name === config.card_name);
+    const total = cardInSummary?.total || 0;
+    const percentage = summary.totalExpenses > 0 ? (total / summary.totalExpenses) * 100 : 0;
+    const transactions = cardInSummary?.transactions || [];
+    return {
+      name: config.card_name,
+      type: config.card_type,
+      total,
+      percentage,
+      transactions,
+    };
+  });
 
   const handleAddCard = async () => {
     // Validation
@@ -138,11 +152,54 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
   };
 
   const handleUpdateCard = async (cardId: string) => {
+    const newName = formData.card_name.trim();
+    if (!newName) {
+      toast({
+        title: "Erro de validação",
+        description: "Nome do cartão é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const duplicate = configurations.find(c => c.card_name.toLowerCase() === newName.toLowerCase() && c.id !== cardId);
+    if (duplicate) {
+      toast({
+        title: "Erro de validação",
+        description: "Já existe um cartão com este nome.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.card_type === 'credit') {
+      const due = formData.due_day ? parseInt(formData.due_day) : undefined;
+      const closing = formData.closing_day ? parseInt(formData.closing_day) : undefined;
+      if (!due || !closing) {
+        toast({
+          title: "Erro de validação",
+          description: "Informe vencimento e fechamento para cartão de crédito.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (due < 1 || due > 31 || closing < 1 || closing > 31) {
+        toast({
+          title: "Erro de validação",
+          description: "Os dias devem estar entre 1 e 31.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       await updateConfiguration(cardId, {
-        due_day: formData.due_day ? parseInt(formData.due_day) : undefined,
-        closing_day: formData.closing_day ? parseInt(formData.closing_day) : undefined,
-      });
+        card_name: newName,
+        card_type: formData.card_type,
+        due_day: (formData.card_type === 'credit' && formData.due_day) ? parseInt(formData.due_day) : (formData.card_type === 'debit' ? null as any : undefined),
+        closing_day: (formData.card_type === 'credit' && formData.closing_day) ? parseInt(formData.closing_day) : (formData.card_type === 'debit' ? null as any : undefined),
+      } as any);
       
       toast({
         title: "Cartão atualizado",
@@ -156,6 +213,16 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
         description: "Não foi possível atualizar o cartão.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este cartão?')) return;
+    try {
+      await deleteConfiguration(cardId);
+      toast({ title: 'Cartão excluído', description: 'O cartão foi removido com sucesso.' });
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Não foi possível excluir o cartão.', variant: 'destructive' });
     }
   };
 
@@ -359,7 +426,7 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
         <h1 className="text-3xl font-bold">Gestão por Cartão</h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            {summary.cards.length} cartão{summary.cards.length !== 1 ? 'ões' : ''} encontrado{summary.cards.length !== 1 ? 's' : ''}
+            {configurations.length} cartão{configurations.length !== 1 ? 'ões' : ''} encontrado{configurations.length !== 1 ? 's' : ''}
           </div>
           <Dialog open={showAddCard} onOpenChange={setShowAddCard}>
             <DialogTrigger asChild>
@@ -435,7 +502,7 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
       </div>
 
       <div className="grid gap-4">
-        {summary.cards.map((card) => {
+        {cardsToShow.map((card) => {
           const config = configurations.find(c => c.card_name === card.name);
           const percentage = summary.totalExpenses > 0 ? (card.total / summary.totalExpenses) * 100 : 0;
           
@@ -478,15 +545,46 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
                       </div>
                     </div>
                     
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Ver Detalhes
-                        </Button>
-                      </DialogTrigger>
-                      <CardDetailModal card={card} />
-                    </Dialog>
+                    <div className="flex items-center gap-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Detalhes
+                          </Button>
+                        </DialogTrigger>
+                        <CardDetailModal card={card} />
+                      </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const cfg = configurations.find(c => c.card_name === card.name);
+                          if (cfg) {
+                            setFormData({
+                              card_name: cfg.card_name,
+                              card_type: cfg.card_type,
+                              due_day: cfg.due_day?.toString() || '',
+                              closing_day: cfg.closing_day?.toString() || '',
+                            });
+                            setEditingCard(cfg.id);
+                          }
+                        }}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          const cfg = configurations.find(c => c.card_name === card.name);
+                          if (cfg) handleDeleteCard(cfg.id);
+                        }}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 
@@ -514,31 +612,63 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-due-day">Dia de Vencimento da Fatura</Label>
+              <div>
+                <Label htmlFor="edit-card-name">Nome do Cartão</Label>
                 <Input
-                  id="edit-due-day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.due_day}
-                  onChange={(e) => setFormData(prev => ({ ...prev, due_day: e.target.value }))}
-                  placeholder="Ex: 15"
+                  id="edit-card-name"
+                  value={formData.card_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, card_name: e.target.value }))}
+                  placeholder="Ex: Nubank, Itaú, etc."
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-closing-day">Dia de Fechamento da Fatura</Label>
-                <Input
-                  id="edit-closing-day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.closing_day}
-                  onChange={(e) => setFormData(prev => ({ ...prev, closing_day: e.target.value }))}
-                  placeholder="Ex: 10"
-                />
+
+              <div>
+                <Label>Tipo do Cartão</Label>
+                <Select
+                  value={formData.card_type}
+                  onValueChange={(value: 'credit' | 'debit') =>
+                    setFormData(prev => ({ ...prev, card_type: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit">Crédito</SelectItem>
+                    <SelectItem value="debit">Débito</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {formData.card_type === 'credit' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-due-day">Dia de Vencimento da Fatura</Label>
+                    <Input
+                      id="edit-due-day"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={formData.due_day}
+                      onChange={(e) => setFormData(prev => ({ ...prev, due_day: e.target.value }))}
+                      placeholder="Ex: 15"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-closing-day">Dia de Fechamento da Fatura</Label>
+                    <Input
+                      id="edit-closing-day"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={formData.closing_day}
+                      onChange={(e) => setFormData(prev => ({ ...prev, closing_day: e.target.value }))}
+                      placeholder="Ex: 10"
+                    />
+                  </div>
+                </>
+              )}
               
               <Separator />
               
@@ -546,7 +676,7 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
                 <Button variant="outline" onClick={() => setEditingCard(null)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => handleUpdateCard(editingCard)}>
+                <Button onClick={() => handleUpdateCard(editingCard!)}>
                   Salvar Configurações
                 </Button>
               </div>
@@ -555,15 +685,15 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
         </Dialog>
       )}
 
-      {summary.cards.length === 0 && (
+      {configurations.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <CreditCard className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-lg">
-              Nenhum cartão encontrado para este mês.
+              Nenhum cartão configurado ainda.
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Adicione algumas transações para começar a ver os dados organizados por cartão.
+              Adicione um cartão para começar a gerenciar suas configurações.
             </p>
           </CardContent>
         </Card>

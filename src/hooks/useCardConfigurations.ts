@@ -63,7 +63,7 @@ export const useCardConfigurations = (groupId: string) => {
     }
   };
 
-  const updateConfiguration = async (id: string, updates: Partial<Pick<CardConfiguration, 'due_day' | 'closing_day'>>) => {
+  const updateConfiguration = async (id: string, updates: Partial<Pick<CardConfiguration, 'due_day' | 'closing_day' | 'card_name' | 'card_type'>>) => {
     try {
       const { data, error } = await (supabase as any)
         .from('card_configurations')
