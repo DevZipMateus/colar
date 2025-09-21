@@ -430,7 +430,7 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
         <h1 className="text-3xl font-bold">Gestão por Cartão</h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            {configurations.length} cartão{configurations.length !== 1 ? 'ões' : ''} encontrado{configurations.length !== 1 ? 's' : ''}
+            {configurations.length} Cartão{configurations.length !== 1 ? 'es' : ''} encontrado{configurations.length !== 1 ? 's' : ''}
           </div>
           <Dialog open={showAddCard} onOpenChange={setShowAddCard}>
             <DialogTrigger asChild>
