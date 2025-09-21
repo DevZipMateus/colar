@@ -276,17 +276,25 @@ export const useFinancialData = (groupId: string | null) => {
       cardMap.set(t.card_name, entry);
     });
 
-    // Add installment amounts by card
+    // Add installment amounts by card with debugging
+    console.log('🔍 Processing monthly installments:', monthlyInstallments);
     monthlyInstallments.forEach(installment => {
       const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
       if (originalTransaction) {
-        const entry = cardMap.get(originalTransaction.card_name) || { 
+        const cardName = originalTransaction.card_name;
+        console.log(`💳 Processing installment for ${cardName}: R$ ${installment.amount}`);
+        
+        const entry = cardMap.get(cardName) || { 
           transactions: [], 
           installmentAmount: 0, 
           type: originalTransaction.card_type 
         };
         entry.installmentAmount += Math.abs(installment.amount);
-        cardMap.set(originalTransaction.card_name, entry);
+        cardMap.set(cardName, entry);
+        
+        console.log(`💰 Card ${cardName} now has installmentAmount: R$ ${entry.installmentAmount}`);
+      } else {
+        console.warn('⚠️ Original transaction not found for installment:', installment.id);
       }
     });
 
@@ -302,6 +310,13 @@ export const useFinancialData = (groupId: string | null) => {
       
       const monthlyTotal = monthlyTransactionsForCard.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const total = monthlyTotal + data.installmentAmount;
+      
+      console.log(`📊 Card ${name} summary:`, {
+        monthlyTransactions: monthlyTotal,
+        installments: data.installmentAmount,
+        total: total,
+        transactionCount: monthlyTransactionsForCard.length
+      });
       
       return {
         name,
