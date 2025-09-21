@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, CreditCard } from 'lucide-react';
 import { CategorySummary, Transaction } from '@/hooks/useFinancialData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateOnly } from '@/lib/utils';
 
 interface CategoryDetailViewProps {
   category: CategorySummary;
@@ -17,7 +18,7 @@ export const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({ category
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), "dd 'de' MMM", { locale: ptBR });
+      return format(parseDateOnly(dateString), "dd 'de' MMM", { locale: ptBR });
     } catch {
       return dateString;
     }

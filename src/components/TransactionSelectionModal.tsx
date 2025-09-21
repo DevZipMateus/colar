@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, CreditCard, Calendar, DollarSign } from 'lucide-react';
+import { parseDateOnly } from '@/lib/utils';
 
 interface ParsedTransaction {
   description: string;
@@ -46,7 +47,7 @@ export const TransactionSelectionModal = ({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return parseDateOnly(dateString).toLocaleDateString('pt-BR');
   };
 
   const handleSelectAll = (checked: boolean) => {

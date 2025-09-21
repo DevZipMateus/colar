@@ -7,6 +7,7 @@ import { Edit, Trash2, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { TransactionForm } from './TransactionForm';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { parseDateOnly } from '@/lib/utils';
 
 interface TransactionListProps {
   groupId: string;
@@ -25,7 +26,7 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return parseDateOnly(dateString).toLocaleDateString('pt-BR');
   };
 
   const handleEdit = (transaction: Transaction) => {

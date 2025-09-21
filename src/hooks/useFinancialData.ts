@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { parseDateOnly } from '@/lib/utils';
 
 export interface Transaction {
   id: string;
@@ -130,7 +131,7 @@ export const useFinancialData = (groupId: string | null) => {
     const currentYear = new Date().getFullYear();
     
     const monthTransactions = transactionData.filter(t => {
-      const transactionDate = new Date(t.date);
+      const transactionDate = parseDateOnly(t.date);
       return transactionDate.getMonth() === currentMonth && 
              transactionDate.getFullYear() === currentYear;
     });
@@ -260,7 +261,7 @@ export const useFinancialData = (groupId: string | null) => {
 
       // If it's a credit card transaction with installments, create installment tracking
       if (transactionData.card_type === 'credit' && transactionData.installments && transactionData.installments > 1) {
-        const transactionDate = new Date(transactionData.date);
+        const transactionDate = parseDateOnly(transactionData.date);
         const startMonth = transactionDate.getMonth() + 1;
         const startYear = transactionDate.getFullYear();
         
@@ -469,7 +470,7 @@ RELATÓRIO DO CARTÃO: ${card.name}
 
 📋 TRANSAÇÕES:
 ${card.transactions.map(t => 
-  `• ${new Date(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')}${t.installments ? ` (${t.installment_number}/${t.installments})` : ''} - por ${t.user_name}`
+  `• ${parseDateOnly(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')}${t.installments ? ` (${t.installment_number}/${t.installments})` : ''} - por ${t.user_name}`
 ).join('\n')}
       `.trim();
     } else if (type === 'user' && userId) {
@@ -485,7 +486,7 @@ RELATÓRIO DO USUÁRIO: ${userSummary.user_name}
 
 📋 TRANSAÇÕES:
 ${userSummary.transactions.map(t => 
-  `• ${new Date(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')} (${t.category} • ${t.card_name})`
+  `• ${parseDateOnly(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')} (${t.category} • ${t.card_name})`
 ).join('\n')}
       `.trim();
     }

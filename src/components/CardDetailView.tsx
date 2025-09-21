@@ -8,6 +8,7 @@ import { CardSummary } from '@/hooks/useFinancialData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
+import { parseDateOnly } from '@/lib/utils';
 
 interface CardDetailViewProps {
   card: CardSummary;
@@ -25,7 +26,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), "dd 'de' MMM", { locale: ptBR });
+      return format(parseDateOnly(dateString), "dd 'de' MMM", { locale: ptBR });
     } catch {
       return dateString;
     }
