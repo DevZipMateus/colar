@@ -299,13 +299,11 @@ export const useFinancialData = (groupId: string | null) => {
       cardMap.set(normalizedCardName, entry);
     });
 
-    // Add installment amounts by card with debugging
-    console.log('🔍 Processing monthly installments:', monthlyInstallments);
+    // Add synthetic transactions for monthly installments to cards (similar to categories)
     monthlyInstallments.forEach(installment => {
       const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
       if (originalTransaction) {
         const normalizedCardName = normalize(originalTransaction.card_name);
-        console.log(`💳 Processing installment for ${originalTransaction.card_name} (normalized: ${normalizedCardName}): R$ ${installment.amount}`);
         
         const entry = cardMap.get(normalizedCardName) || { 
           transactions: [], 
@@ -313,9 +311,33 @@ export const useFinancialData = (groupId: string | null) => {
           type: originalTransaction.card_type 
         };
         entry.installmentAmount += Math.abs(installment.amount);
-        cardMap.set(normalizedCardName, entry);
         
-        console.log(`💰 Card ${originalTransaction.card_name} now has installmentAmount: R$ ${entry.installmentAmount}`);
+        // Create synthetic transaction for this installment (for reports)
+        const syntheticTransaction: Transaction = {
+          id: `card-installment-${installment.id}`,
+          group_id: originalTransaction.group_id,
+          description: originalTransaction.description,
+          amount: installment.amount,
+          date: `${installment.due_year}-${String(installment.due_month).padStart(2, '0')}-01`,
+          category: originalTransaction.category,
+          card_name: originalTransaction.card_name,
+          card_type: originalTransaction.card_type,
+          installments: installment.total_installments,
+          installment_number: installment.installment_number,
+          is_recurring: originalTransaction.is_recurring,
+          created_by: installment.created_by,
+          created_at: installment.created_at,
+          user_name: userProfiles.find(u => u.id === installment.created_by)?.name || 'Usuário desconhecido',
+          user_avatar_url: userProfiles.find(u => u.id === installment.created_by)?.avatar_url,
+          installment_info: {
+            current_installment: installment.installment_number,
+            total_installments: installment.total_installments,
+            monthly_amount: installment.amount
+          }
+        };
+        
+        entry.transactions.push(syntheticTransaction);
+        cardMap.set(normalizedCardName, entry);
       } else {
         console.warn('⚠️ Original transaction not found for installment:', installment.id);
       }
@@ -637,6 +659,23 @@ ${summary.cards.map(card =>
       const card = summary.cards.find(c => c.name === cardName);
       if (!card) return '';
 
+      // Filter transactions for current month only (regular + synthetic installments)
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const currentMonthTransactions = card.transactions.filter(t => {
+        const transactionDate = parseDateOnly(t.date);
+        const isCurrentMonth = transactionDate.getMonth() === currentMonth && 
+                              transactionDate.getFullYear() === currentYear;
+        
+        // Include regular transactions that are not multi-installment OR synthetic installment transactions
+        const isRegularOrSynthetic = (!t.installments || t.installments <= 1) || 
+                                   t.id.startsWith('card-installment-') || 
+                                   t.id.startsWith('synthetic-');
+        
+        return isCurrentMonth && isRegularOrSynthetic;
+      });
+
       return `
 RELATÓRIO DO CARTÃO: ${card.name}
 
@@ -644,10 +683,14 @@ RELATÓRIO DO CARTÃO: ${card.name}
 💰 Total Gasto: R$ ${card.total.toFixed(2).replace('.', ',')}
 📊 Percentual do Total: ${card.percentage.toFixed(1)}%
 
-📋 TRANSAÇÕES:
-${card.transactions.map(t => 
-  `• ${parseDateOnly(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')}${t.installments ? ` (${t.installment_number}/${t.installments})` : ''} - por ${t.user_name}`
-).join('\n')}
+📋 COMPRAS:
+${currentMonthTransactions.map(t => {
+  let installmentInfo = '';
+  if (t.installments && t.installments > 1) {
+    installmentInfo = ` (${t.installment_number}/${t.installments})`;
+  }
+  return `• ${parseDateOnly(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${Math.abs(t.amount).toFixed(2).replace('.', ',')}${installmentInfo} - por ${t.user_name}`;
+}).join('\n')}
       `.trim();
     } else if (type === 'user' && userId) {
       const userSummary = summary.users.find(u => u.user_id === userId);
