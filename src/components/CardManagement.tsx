@@ -525,7 +525,7 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
                           {card.type === 'credit' ? 'Cartão de Crédito' : 'Cartão de Débito'}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          {card.transactions.length} transação{card.transactions.length !== 1 ? 'ões' : ''}
+                          {card.transactions.length} Compra{card.transactions.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                       {config && (
