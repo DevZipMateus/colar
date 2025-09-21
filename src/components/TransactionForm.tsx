@@ -14,6 +14,7 @@ import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 import { useExpenseCategories, ExpenseCategory } from '@/hooks/useExpenseCategories';
 import { toast } from '@/hooks/use-toast';
+import { formatDateOnly, parseDateOnly } from '@/lib/utils';
 
 interface TransactionFormProps {
   groupId: string;
@@ -29,7 +30,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
   const [formData, setFormData] = useState({
     description: editingTransaction?.description || '',
     amount: editingTransaction?.amount?.toString() || '',
-    date: editingTransaction ? new Date(editingTransaction.date) : new Date(),
+    date: editingTransaction ? parseDateOnly(editingTransaction.date) : new Date(),
     category: editingTransaction?.category || '',
     card_name: editingTransaction?.card_name || '',
     card_type: (editingTransaction?.card_type || 'credit') as 'credit' | 'debit',
@@ -64,7 +65,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
         group_id: groupId,
         description: formData.description,
         amount,
-        date: formData.date.toISOString().split('T')[0],
+        date: formatDateOnly(formData.date),
         category: formData.category,
         card_name: formData.card_name,
         card_type: formData.card_type,
@@ -154,9 +155,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
                     mode="single"
                     selected={formData.date}
                     onSelect={(date) => {
-                      console.log('Calendar - Selected date:', date);
                       if (date) {
-                        console.log('Calendar - Setting new date:', date);
                         setFormData(prev => ({ ...prev, date }));
                         setShowDatePicker(false);
                       }
