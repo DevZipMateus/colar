@@ -96,22 +96,17 @@ export const useFinancialData = (groupId: string | null) => {
       // Fetch installment data
       const { data: installmentData, error: installmentError } = await supabase
         .from('installment_tracking')
-        .select(`
-          *,
-          profiles:created_by (
-            id,
-            name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('group_id', groupId);
 
       if (installmentError) {
         console.error('Error fetching installments:', installmentError);
       }
 
-      // Fetch user profiles for all unique created_by values
-      const uniqueUserIds = [...new Set((transactionData || []).map(t => t.created_by))];
+      // Fetch user profiles for all unique created_by values from both transactions and installments
+      const transactionUserIds = [...new Set((transactionData || []).map(t => t.created_by))];
+      const installmentUserIds = [...new Set((installmentData || []).map(i => i.created_by))];
+      const uniqueUserIds = [...new Set([...transactionUserIds, ...installmentUserIds])];
       
       let userProfiles: any[] = [];
       if (uniqueUserIds.length > 0) {
@@ -162,7 +157,7 @@ export const useFinancialData = (groupId: string | null) => {
       });
 
       setTransactions(transactionsWithUsers as Transaction[]);
-      calculateSummary(transactionsWithUsers as Transaction[], installmentData || []);
+      calculateSummary(transactionsWithUsers as Transaction[], installmentData || [], userProfiles);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -175,7 +170,7 @@ export const useFinancialData = (groupId: string | null) => {
     }
   };
 
-  const calculateSummary = (transactionData: Transaction[], installmentData: any[] = []) => {
+  const calculateSummary = (transactionData: Transaction[], installmentData: any[] = [], userProfiles: any[] = []) => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
@@ -266,14 +261,16 @@ export const useFinancialData = (groupId: string | null) => {
       };
     }).sort((a, b) => b.total - a.total);
 
-    // Group by cards (including installments) - Use ALL transactions for card management
+    // Group by cards (including installments) - Use ALL transactions for card management  
+    const normalize = (s: string) => s.trim().toLowerCase();
     const cardMap = new Map<string, { transactions: Transaction[], installmentAmount: number, type: 'credit' | 'debit' }>();
     
     // Add ALL transactions (not just monthly) for complete card management view
     transactionData.forEach(t => {
-      const entry = cardMap.get(t.card_name) || { transactions: [], installmentAmount: 0, type: t.card_type };
+      const normalizedCardName = normalize(t.card_name);
+      const entry = cardMap.get(normalizedCardName) || { transactions: [], installmentAmount: 0, type: t.card_type };
       entry.transactions.push(t);
-      cardMap.set(t.card_name, entry);
+      cardMap.set(normalizedCardName, entry);
     });
 
     // Add installment amounts by card with debugging
@@ -281,24 +278,24 @@ export const useFinancialData = (groupId: string | null) => {
     monthlyInstallments.forEach(installment => {
       const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
       if (originalTransaction) {
-        const cardName = originalTransaction.card_name;
-        console.log(`💳 Processing installment for ${cardName}: R$ ${installment.amount}`);
+        const normalizedCardName = normalize(originalTransaction.card_name);
+        console.log(`💳 Processing installment for ${originalTransaction.card_name} (normalized: ${normalizedCardName}): R$ ${installment.amount}`);
         
-        const entry = cardMap.get(cardName) || { 
+        const entry = cardMap.get(normalizedCardName) || { 
           transactions: [], 
           installmentAmount: 0, 
           type: originalTransaction.card_type 
         };
         entry.installmentAmount += Math.abs(installment.amount);
-        cardMap.set(cardName, entry);
+        cardMap.set(normalizedCardName, entry);
         
-        console.log(`💰 Card ${cardName} now has installmentAmount: R$ ${entry.installmentAmount}`);
+        console.log(`💰 Card ${originalTransaction.card_name} now has installmentAmount: R$ ${entry.installmentAmount}`);
       } else {
         console.warn('⚠️ Original transaction not found for installment:', installment.id);
       }
     });
 
-    const cards: CardSummary[] = Array.from(cardMap.entries()).map(([name, data]) => {
+    const cards: CardSummary[] = Array.from(cardMap.entries()).map(([normalizedName, data]) => {
       // For card total, we want the monthly amount for monthly view, but we keep all transactions for card management
       const monthlyTransactionsForCard = data.transactions.filter(t => {
         const transactionDate = parseDateOnly(t.date);
@@ -311,7 +308,10 @@ export const useFinancialData = (groupId: string | null) => {
       const monthlyTotal = monthlyTransactionsForCard.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const total = monthlyTotal + data.installmentAmount;
       
-      console.log(`📊 Card ${name} summary:`, {
+      // Use the original card name from the first transaction for display
+      const displayName = data.transactions.length > 0 ? data.transactions[0].card_name : normalizedName;
+      
+      console.log(`📊 Card ${displayName} summary:`, {
         monthlyTransactions: monthlyTotal,
         installments: data.installmentAmount,
         total: total,
@@ -319,7 +319,7 @@ export const useFinancialData = (groupId: string | null) => {
       });
       
       return {
-        name,
+        name: displayName, // Use original display name
         type: data.type,
         total,
         percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
@@ -342,10 +342,12 @@ export const useFinancialData = (groupId: string | null) => {
       userMap.set(t.created_by, entry);
     });
 
-    // Add installment amounts by user
+    // Add installment amounts by user using the userProfileMap
+    const userProfileMap = new Map(userProfiles.map((user: any) => [user.id, user]));
     monthlyInstallments.forEach(installment => {
-      const profileName = installment.profiles?.name || 'Usuário desconhecido';
-      const profileAvatar = installment.profiles?.avatar_url;
+      const userProfile = userProfileMap.get(installment.created_by);
+      const profileName = userProfile?.name || 'Usuário desconhecido';
+      const profileAvatar = userProfile?.avatar_url;
       const entry = userMap.get(installment.created_by) || { 
         transactions: [], 
         installmentAmount: 0, 
