@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, CreditCard, Calendar, DollarSign } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Edit, Trash2, CreditCard, Calendar, DollarSign, ArrowUpDown, Search, Filter } from 'lucide-react';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { TransactionForm } from './TransactionForm';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -17,6 +19,14 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
   const { transactions, loading, updateTransaction, deleteTransaction } = useFinancialData(groupId);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
+  
+  // Filter and sort states
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterCard, setFilterCard] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -43,6 +53,64 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
     setEditingTransaction(null);
   };
 
+  // Get unique values for filters
+  const uniqueCategories = useMemo(() => {
+    const categories = [...new Set(transactions.map(t => t.category))];
+    return categories.sort();
+  }, [transactions]);
+
+  const uniqueCards = useMemo(() => {
+    const cards = [...new Set(transactions.map(t => t.card_name))];
+    return cards.sort();
+  }, [transactions]);
+
+  // Filter and sort transactions
+  const filteredAndSortedTransactions = useMemo(() => {
+    let filtered = transactions.filter(transaction => {
+      const matchesSearch = searchTerm === '' || 
+        transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.card_name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
+      const matchesCard = filterCard === 'all' || transaction.card_name === filterCard;
+      const matchesType = filterType === 'all' || transaction.card_type === filterType;
+      
+      return matchesSearch && matchesCategory && matchesCard && matchesType;
+    });
+
+    // Sort transactions
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        case 'description':
+          comparison = a.description.localeCompare(b.description);
+          break;
+        case 'date':
+        default:
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [transactions, sortBy, sortOrder, filterCategory, filterCard, filterType, searchTerm]);
+
+  const handleSort = (newSortBy: typeof sortBy) => {
+    if (sortBy === newSortBy) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('desc');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -62,20 +130,94 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Transações ({transactions.length})
+            Transações ({filteredAndSortedTransactions.length} de {transactions.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {transactions.length === 0 ? (
+        <CardContent className="space-y-4">
+          {/* Filters Section */}
+          <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4" />
+              Filtros e Ordenação
+            </div>
+            
+            {/* Search */}
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por descrição, categoria ou cartão..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+            
+            {/* Filters Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {uniqueCategories.map(category => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterCard} onValueChange={setFilterCard}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Cartão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os cartões</SelectItem>
+                  {uniqueCards.map(card => (
+                    <SelectItem key={card} value={card}>{card}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="credit">Crédito</SelectItem>
+                  <SelectItem value="debit">Débito</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                const [newSortBy, newSortOrder] = value.split('-') as [typeof sortBy, typeof sortOrder];
+                setSortBy(newSortBy);
+                setSortOrder(newSortOrder);
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date-desc">Data (mais recente)</SelectItem>
+                  <SelectItem value="date-asc">Data (mais antigo)</SelectItem>
+                  <SelectItem value="amount-desc">Valor (maior)</SelectItem>
+                  <SelectItem value="amount-asc">Valor (menor)</SelectItem>
+                  <SelectItem value="description-asc">Descrição (A-Z)</SelectItem>
+                  <SelectItem value="description-desc">Descrição (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {filteredAndSortedTransactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhuma transação encontrada</p>
+              <p>{transactions.length === 0 ? 'Nenhuma transação encontrada' : 'Nenhuma transação corresponde aos filtros'}</p>
             </div>
           ) : (
             <>
               {/* Mobile View */}
               <div className="block md:hidden space-y-3">
-                {transactions.map((transaction) => (
+                {filteredAndSortedTransactions.map((transaction) => (
                   <Card key={transaction.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
@@ -146,9 +288,21 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Data</TableHead>
+                        <TableHead>
+                          <Button variant="ghost" onClick={() => handleSort('description')} className="h-auto p-0 font-semibold">
+                            Descrição <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button variant="ghost" onClick={() => handleSort('amount')} className="h-auto p-0 font-semibold">
+                            Valor <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button variant="ghost" onClick={() => handleSort('date')} className="h-auto p-0 font-semibold">
+                            Data <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
                         <TableHead>Categoria</TableHead>
                         <TableHead>Cartão</TableHead>
                         <TableHead>Tipo</TableHead>
@@ -158,7 +312,7 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transactions.map((transaction) => (
+                      {filteredAndSortedTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="font-medium">
                             {transaction.description}
