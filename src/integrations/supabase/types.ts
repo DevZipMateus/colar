@@ -450,25 +450,34 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          display_name: string | null
           email: string | null
           id: string
+          is_profile_public: boolean | null
           name: string | null
+          show_email_in_groups: boolean | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           id: string
+          is_profile_public?: boolean | null
           name?: string | null
+          show_email_in_groups?: boolean | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           id?: string
+          is_profile_public?: boolean | null
           name?: string | null
+          show_email_in_groups?: boolean | null
           updated_at?: string
         }
         Relationships: []
@@ -561,6 +570,14 @@ export type Database = {
       generate_recurring_expenses: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_user_display_info: {
+        Args: { target_user_id: string }
+        Returns: {
+          display_name: string
+          show_email: boolean
+          user_id: string
+        }[]
       }
       is_user_group_member: {
         Args: { group_id: string; user_id: string }

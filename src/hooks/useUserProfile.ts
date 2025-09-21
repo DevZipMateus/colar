@@ -8,6 +8,9 @@ interface UserProfile {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+  display_name: string | null;
+  is_profile_public: boolean;
+  show_email_in_groups: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -43,7 +46,7 @@ export const useUserProfile = () => {
     }
   };
 
-  const updateProfile = async (updates: Partial<Pick<UserProfile, 'name' | 'avatar_url'>>) => {
+  const updateProfile = async (updates: Partial<Pick<UserProfile, 'name' | 'avatar_url' | 'display_name' | 'is_profile_public' | 'show_email_in_groups'>>) => {
     if (!user) return { error: new Error('Not authenticated') };
 
     try {
