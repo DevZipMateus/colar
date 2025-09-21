@@ -319,6 +319,22 @@ export const useFinancialData = (groupId: string | null) => {
       if (error) throw error;
 
       await fetchTransactions();
+      
+      // Registrar atividade
+      await supabase
+        .from('activity_feed')
+        .insert({
+          group_id: groupId,
+          user_id: user.id,
+          activity_type: 'transaction_updated',
+          description: `Editou transação: ${transactionData.description || 'transação'}`,
+          metadata: {
+            amount: transactionData.amount,
+            category: transactionData.category,
+            card_name: transactionData.card_name
+          }
+        });
+
       toast({
         title: "Transação atualizada",
         description: "A transação foi atualizada com sucesso.",
@@ -339,6 +355,14 @@ export const useFinancialData = (groupId: string | null) => {
     if (!user || !groupId) return false;
 
     try {
+      // Buscar dados da transação antes de excluir para log de atividade
+      const { data: transaction } = await supabase
+        .from('financial_transactions')
+        .select('description, amount, category')
+        .eq('id', id)
+        .eq('group_id', groupId)
+        .single();
+
       const { error } = await supabase
         .from('financial_transactions')
         .delete()
@@ -347,7 +371,31 @@ export const useFinancialData = (groupId: string | null) => {
 
       if (error) throw error;
 
+      // Excluir parcelas relacionadas se existirem
+      await supabase
+        .from('installment_tracking')
+        .delete()
+        .eq('transaction_id', id)
+        .eq('group_id', groupId);
+
       await fetchTransactions();
+      
+      // Registrar atividade
+      if (transaction) {
+        await supabase
+          .from('activity_feed')
+          .insert({
+            group_id: groupId,
+            user_id: user.id,
+            activity_type: 'transaction_deleted',
+            description: `Excluiu transação: ${transaction.description}`,
+            metadata: {
+              amount: transaction.amount,
+              category: transaction.category
+            }
+          });
+      }
+
       toast({
         title: "Transação excluída",
         description: "A transação foi excluída com sucesso.",
