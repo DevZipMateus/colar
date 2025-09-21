@@ -240,19 +240,45 @@ export const useFinancialData = (groupId: string | null) => {
       categoryMap.set(t.category, entry);
     });
 
-    // Add installment amounts by category
+    // Add installment amounts by category AND create synthetic transactions for installments
     monthlyInstallments.forEach(installment => {
       const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
       if (originalTransaction) {
         const entry = categoryMap.get(originalTransaction.category) || { transactions: [], installmentAmount: 0 };
         entry.installmentAmount += Math.abs(installment.amount);
+        
+        // Create synthetic transaction for this installment
+        const syntheticTransaction: Transaction = {
+          id: `synthetic-${installment.id}`,
+          group_id: originalTransaction.group_id,
+          description: originalTransaction.description,
+          amount: installment.amount,
+          date: `${installment.due_year}-${String(installment.due_month).padStart(2, '0')}-01`,
+          category: originalTransaction.category,
+          card_name: originalTransaction.card_name,
+          card_type: originalTransaction.card_type,
+          installments: installment.total_installments,
+          installment_number: installment.installment_number,
+          is_recurring: originalTransaction.is_recurring,
+          created_by: installment.created_by,
+          created_at: installment.created_at,
+          user_name: userProfiles.find(u => u.id === installment.created_by)?.name || 'Usuário desconhecido',
+          user_avatar_url: userProfiles.find(u => u.id === installment.created_by)?.avatar_url,
+          installment_info: {
+            current_installment: installment.installment_number,
+            total_installments: installment.total_installments,
+            monthly_amount: installment.amount
+          }
+        };
+        
+        entry.transactions.push(syntheticTransaction);
         categoryMap.set(originalTransaction.category, entry);
       }
     });
 
     const categories: CategorySummary[] = Array.from(categoryMap.entries()).map(([name, data]) => {
-      const transactionTotal = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const total = transactionTotal + data.installmentAmount;
+      // Recalculate total from all transactions (regular + synthetic installments)
+      const total = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       return {
         name,
         total,
@@ -668,28 +694,32 @@ ${userSummary.transactions.map(t =>
       let reportText = `RELATÓRIO DA CATEGORIA: ${categoryName}\n\n`;
       reportText += `💰 Total Gasto: R$ ${category.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
       reportText += `📊 Percentual do Total: ${category.percentage.toFixed(1)}%\n`;
-      reportText += `🔢 Número de Transações: ${category.transactions.length}\n\n`;
+      reportText += `🔢 Número de Compras: ${category.transactions.length}\n\n`;
 
       reportText += `👥 GASTOS POR USUÁRIO NESTA CATEGORIA:\n`;
       Object.entries(userBreakdown)
         .sort((a, b) => b[1].total - a[1].total)
         .forEach(([userId, data]) => {
-          reportText += `• ${data.name}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} transações)\n`;
+          reportText += `• ${data.name}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} compras)\n`;
         });
 
       reportText += `\n💳 GASTOS POR CARTÃO NESTA CATEGORIA:\n`;
       Object.entries(cardBreakdown)
         .sort((a, b) => b[1].total - a[1].total)
         .forEach(([cardName, data]) => {
-          reportText += `• ${cardName}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} transações)\n`;
+          reportText += `• ${cardName}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} compras)\n`;
         });
 
-      reportText += `\n📋 TODAS AS TRANSAÇÕES:\n`;
+      reportText += `\n📋 TODAS AS COMPRAS:\n`;
       category.transactions
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .forEach(transaction => {
           const formattedDate = parseDateOnly(transaction.date).toLocaleDateString('pt-BR');
-          reportText += `• ${formattedDate} - ${transaction.description}: R$ ${Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${transaction.card_name} • por ${transaction.user_name || 'Usuário desconhecido'})\n`;
+          let installmentInfo = '';
+          if (transaction.installments && transaction.installments > 1) {
+            installmentInfo = ` • parcela ${transaction.installment_number}/${transaction.installments}`;
+          }
+          reportText += `• ${formattedDate} - ${transaction.description}: R$ ${Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${installmentInfo} (${transaction.card_name} • por ${transaction.user_name || 'Usuário desconhecido'})\n`;
         });
 
       return reportText;
