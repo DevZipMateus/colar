@@ -2,16 +2,18 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ShoppingCart, Home, Car, Coffee, Trash2, Utensils, Gamepad2 } from 'lucide-react';
+import { Plus, ShoppingCart, Home, Car, Coffee, Trash2, Utensils, Gamepad2, Edit2, AlertCircle, Heart, Gift, Sparkles, BookOpen, Smartphone, CreditCard, UtensilsCrossed, Building, Receipt, Shirt } from 'lucide-react';
 
 interface CategoryManagerProps {
   categories: any[];
   onCreateCategory: (name: string, color: string, icon: string) => Promise<any>;
+  onUpdateCategory: (categoryId: string, name: string, color: string, icon: string) => Promise<any>;
   onDeleteCategory: (categoryId: string) => Promise<any>;
 }
 
-const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: CategoryManagerProps) => {
+const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDeleteCategory }: CategoryManagerProps) => {
   const [showAddCategory, setShowAddCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState('#f97316');
   const [selectedIcon, setSelectedIcon] = useState('ShoppingCart');
@@ -19,20 +21,40 @@ const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: Cat
 
   const iconOptions = [
     { name: 'ShoppingCart', Icon: ShoppingCart },
+    { name: 'AlertCircle', Icon: AlertCircle },
     { name: 'Home', Icon: Home },
+    { name: 'Shirt', Icon: Shirt },
+    { name: 'Heart', Icon: Heart },
+    { name: 'Gift', Icon: Gift },
+    { name: 'Sparkles', Icon: Sparkles },
+    { name: 'BookOpen', Icon: BookOpen },
+    { name: 'Gamepad2', Icon: Gamepad2 },
+    { name: 'Smartphone', Icon: Smartphone },
+    { name: 'CreditCard', Icon: CreditCard },
     { name: 'Car', Icon: Car },
+    { name: 'UtensilsCrossed', Icon: UtensilsCrossed },
+    { name: 'Building', Icon: Building },
+    { name: 'Receipt', Icon: Receipt },
     { name: 'Coffee', Icon: Coffee },
     { name: 'Utensils', Icon: Utensils },
-    { name: 'Gamepad2', Icon: Gamepad2 },
   ];
 
   const colorOptions = [
-    '#f97316', // orange
-    '#ef4444', // red
-    '#3b82f6', // blue
-    '#10b981', // green
-    '#8b5cf6', // purple
-    '#f59e0b', // yellow
+    '#22c55e', // green (Mercado)
+    '#f59e0b', // amber (Despesas eventuais)
+    '#3b82f6', // blue (Necessidades)
+    '#8b5cf6', // violet (Roupas)
+    '#ef4444', // red (Saúde)
+    '#ec4899', // pink (Presentes)
+    '#f97316', // orange (Beleza)
+    '#06b6d4', // cyan (Educação)
+    '#84cc16', // lime (Lazer)
+    '#6366f1', // indigo (Eletrônicos)
+    '#64748b', // slate (Assinaturas)
+    '#eab308', // yellow (99/Transporte)
+    '#dc2626', // red-600 (IFood/Restaurante)
+    '#059669', // emerald (Aluguel)
+    '#7c3aed', // violet-600 (Contas)
   ];
 
   const handleCreateCategory = async (e: React.FormEvent) => {
@@ -44,12 +66,44 @@ const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: Cat
     
     if (!result?.error) {
       setShowAddCategory(false);
-      setCategoryName('');
-      setSelectedColor('#f97316');
-      setSelectedIcon('ShoppingCart');
+      resetForm();
     }
     
     setLoading(false);
+  };
+
+  const handleEditCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName.trim() || !editingCategory) return;
+
+    setLoading(true);
+    const result = await onUpdateCategory(editingCategory.id, categoryName.trim(), selectedColor, selectedIcon);
+    
+    if (!result?.error) {
+      setEditingCategory(null);
+      resetForm();
+    }
+    
+    setLoading(false);
+  };
+
+  const resetForm = () => {
+    setCategoryName('');
+    setSelectedColor('#f97316');
+    setSelectedIcon('ShoppingCart');
+  };
+
+  const startEditing = (category: any) => {
+    setEditingCategory(category);
+    setCategoryName(category.name);
+    setSelectedColor(category.color);
+    setSelectedIcon(category.icon);
+  };
+
+  const cancelEditing = () => {
+    setEditingCategory(null);
+    setShowAddCategory(false);
+    resetForm();
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -82,23 +136,33 @@ const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: Cat
                 key={category.id}
                 className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
-                <div className="flex items-center space-x-2">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: category.color + '20' }}
-                  >
-                    <IconComponent size={16} style={{ color: category.color }} />
-                  </div>
-                  <span className="text-sm font-medium text-colar-navy">{category.name}</span>
-                </div>
-                <Button
-                  onClick={() => handleDeleteCategory(category.id)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 size={14} />
-                </Button>
+                 <div className="flex items-center space-x-2 flex-1">
+                   <div
+                     className="w-8 h-8 rounded-full flex items-center justify-center"
+                     style={{ backgroundColor: category.color + '20' }}
+                   >
+                     <IconComponent size={16} style={{ color: category.color }} />
+                   </div>
+                   <span className="text-sm font-medium text-colar-navy">{category.name}</span>
+                 </div>
+                 <div className="flex space-x-1">
+                   <Button
+                     onClick={() => startEditing(category)}
+                     variant="ghost"
+                     size="sm"
+                     className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                   >
+                     <Edit2 size={14} />
+                   </Button>
+                   <Button
+                     onClick={() => handleDeleteCategory(category.id)}
+                     variant="ghost"
+                     size="sm"
+                     className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                   >
+                     <Trash2 size={14} />
+                   </Button>
+                 </div>
               </div>
             );
           })}
@@ -112,12 +176,14 @@ const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: Cat
           </div>
         )}
 
-        {/* Modal para adicionar categoria */}
-        {showAddCategory && (
+        {/* Modal para adicionar/editar categoria */}
+        {(showAddCategory || editingCategory) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-colar-navy mb-4">Nova Categoria</h3>
-              <form onSubmit={handleCreateCategory} className="space-y-4">
+              <h3 className="text-lg font-semibold text-colar-navy mb-4">
+                {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+              </h3>
+              <form onSubmit={editingCategory ? handleEditCategory : handleCreateCategory} className="space-y-4">
                 <input
                   type="text"
                   placeholder="Nome da categoria"
@@ -164,28 +230,23 @@ const CategoryManager = ({ categories, onCreateCategory, onDeleteCategory }: Cat
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setShowAddCategory(false);
-                      setCategoryName('');
-                      setSelectedColor('#f97316');
-                      setSelectedIcon('ShoppingCart');
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
-                  >
-                    {loading ? 'Criando...' : 'Criar'}
-                  </Button>
-                </div>
+                 <div className="flex space-x-3">
+                   <Button
+                     type="button"
+                     onClick={cancelEditing}
+                     variant="outline"
+                     className="flex-1"
+                   >
+                     Cancelar
+                   </Button>
+                   <Button
+                     type="submit"
+                     disabled={loading}
+                     className="flex-1 bg-colar-orange hover:bg-colar-orange-dark text-white"
+                   >
+                     {loading ? (editingCategory ? 'Salvando...' : 'Criando...') : (editingCategory ? 'Salvar' : 'Criar')}
+                   </Button>
+                 </div>
               </form>
             </div>
           </div>

@@ -12,7 +12,10 @@ export type ActivityType =
   | 'task_completed' 
   | 'task_deleted'
   | 'inventory_updated' 
-  | 'member_joined';
+  | 'member_joined'
+  | 'category_created'
+  | 'category_updated'
+  | 'category_deleted';
 
 interface Activity {
   id: string;
@@ -124,6 +127,10 @@ export const useActivityFeed = (groupId: string | null) => {
         return 'Package';
       case 'member_joined':
         return 'Users';
+      case 'category_created':
+      case 'category_updated':
+      case 'category_deleted':
+        return 'Tag';
       default:
         return 'Activity';
     }
@@ -143,6 +150,10 @@ export const useActivityFeed = (groupId: string | null) => {
         return 'colar-red';
       case 'member_joined':
         return 'colar-green';
+      case 'category_created':
+      case 'category_updated':
+      case 'category_deleted':
+        return 'purple-500';
       default:
         return 'gray';
     }

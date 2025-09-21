@@ -8,6 +8,7 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionList } from './TransactionList';
 import { ExcelImport } from './ExcelImport';
 import { CategoryManagement } from './CategoryManagement';
+import { ExpenseCategoryManager } from './ExpenseCategoryManager';
 import { CardManagement } from './CardManagement';
 import { ReportGenerator } from './ReportGenerator';
 import { FinancialOverview } from './FinancialOverview';
@@ -131,7 +132,7 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4">
-          <CategoryManagement groupId={groupId} />
+          <ExpenseCategoryManager groupId={groupId} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">

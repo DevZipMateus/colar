@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
+import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { toast } from '@/hooks/use-toast';
 
 interface TransactionFormProps {
@@ -176,11 +177,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
-                <SelectContent>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
+                 <SelectContent>
+                   {categories.map(category => (
+                     <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                   ))}
+                 </SelectContent>
               </Select>
             </div>
 
