@@ -2,13 +2,13 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Copy, Share, FileText, Download, Users } from 'lucide-react';
+import { Copy, Share, FileText, Download, Users, Tag } from 'lucide-react';
 import { FinancialSummary } from '@/hooks/useFinancialData';
 import { toast } from '@/hooks/use-toast';
 
 interface ReportGeneratorProps {
   summary: FinancialSummary;
-  onGenerateReport: (type: 'full' | 'card' | 'user', cardName?: string, userId?: string) => string;
+  onGenerateReport: (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string) => string;
 }
 
 export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGenerateReport }) => {
@@ -71,6 +71,22 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGen
 
   const handleShareUserWhatsApp = (userId: string) => {
     const report = onGenerateReport('user', undefined, userId);
+    const encodedReport = encodeURIComponent(report);
+    const whatsappUrl = `https://wa.me/?text=${encodedReport}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleCopyCategoryReport = (categoryName: string) => {
+    const report = onGenerateReport('category', undefined, undefined, categoryName);
+    navigator.clipboard.writeText(report);
+    toast({
+      title: "Relatório da categoria copiado",
+      description: `O relatório de ${categoryName} foi copiado para a área de transferência.`,
+    });
+  };
+
+  const handleShareCategoryWhatsApp = (categoryName: string) => {
+    const report = onGenerateReport('category', undefined, undefined, categoryName);
     const encodedReport = encodeURIComponent(report);
     const whatsappUrl = `https://wa.me/?text=${encodedReport}`;
     window.open(whatsappUrl, '_blank');
@@ -153,6 +169,51 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGen
                     variant="outline"
                     size="sm"
                     onClick={() => handleShareCardWhatsApp(card.name)}
+                  >
+                    <Share className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="w-5 h-5" />
+            Relatórios por Categoria
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Gere relatórios específicos para cada categoria de gasto.
+          </p>
+          
+          <div className="space-y-3">
+            {summary.categories.map((category) => (
+              <div key={category.name} className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <div className="font-medium">{category.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    R$ {category.total.toFixed(2).replace('.', ',')} • {category.transactions.length} transações
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyCategoryReport(category.name)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShareCategoryWhatsApp(category.name)}
                   >
                     <Share className="w-4 h-4" />
                   </Button>

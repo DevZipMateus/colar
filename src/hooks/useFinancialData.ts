@@ -421,7 +421,7 @@ export const useFinancialData = (groupId: string | null) => {
     console.log('CSV parsing to be implemented', csvContent);
   };
 
-  const generateReport = (type: 'full' | 'card' | 'user', cardName?: string, userId?: string) => {
+  const generateReport = (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string) => {
     if (!summary) return '';
 
     if (type === 'full') {
@@ -489,6 +489,60 @@ ${userSummary.transactions.map(t =>
   `• ${parseDateOnly(t.date).toLocaleDateString('pt-BR')} - ${t.description}: R$ ${t.amount.toFixed(2).replace('.', ',')} (${t.category} • ${t.card_name})`
 ).join('\n')}
       `.trim();
+    } else if (type === 'category' && categoryName) {
+      const category = summary.categories.find(c => c.name === categoryName);
+      if (!category) return 'Categoria não encontrada';
+
+      // Group by user within this category
+      const userBreakdown = category.transactions.reduce((acc, transaction) => {
+        const userKey = transaction.created_by;
+        if (!acc[userKey]) {
+          acc[userKey] = { total: 0, count: 0, name: transaction.user_name || 'Usuário desconhecido' };
+        }
+        acc[userKey].total += Math.abs(transaction.amount);
+        acc[userKey].count += 1;
+        return acc;
+      }, {} as Record<string, { total: number; count: number; name: string }>);
+
+      // Group by card within this category
+      const cardBreakdown = category.transactions.reduce((acc, transaction) => {
+        const cardKey = transaction.card_name;
+        if (!acc[cardKey]) {
+          acc[cardKey] = { total: 0, count: 0 };
+        }
+        acc[cardKey].total += Math.abs(transaction.amount);
+        acc[cardKey].count += 1;
+        return acc;
+      }, {} as Record<string, { total: number; count: number }>);
+
+      let reportText = `RELATÓRIO DA CATEGORIA: ${categoryName}\n\n`;
+      reportText += `💰 Total Gasto: R$ ${category.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      reportText += `📊 Percentual do Total: ${category.percentage.toFixed(1)}%\n`;
+      reportText += `🔢 Número de Transações: ${category.transactions.length}\n\n`;
+
+      reportText += `👥 GASTOS POR USUÁRIO NESTA CATEGORIA:\n`;
+      Object.entries(userBreakdown)
+        .sort((a, b) => b[1].total - a[1].total)
+        .forEach(([userId, data]) => {
+          reportText += `• ${data.name}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} transações)\n`;
+        });
+
+      reportText += `\n💳 GASTOS POR CARTÃO NESTA CATEGORIA:\n`;
+      Object.entries(cardBreakdown)
+        .sort((a, b) => b[1].total - a[1].total)
+        .forEach(([cardName, data]) => {
+          reportText += `• ${cardName}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} transações)\n`;
+        });
+
+      reportText += `\n📋 TODAS AS TRANSAÇÕES:\n`;
+      category.transactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .forEach(transaction => {
+          const formattedDate = parseDateOnly(transaction.date).toLocaleDateString('pt-BR');
+          reportText += `• ${formattedDate} - ${transaction.description}: R$ ${Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${transaction.card_name} • por ${transaction.user_name || 'Usuário desconhecido'})\n`;
+        });
+
+      return reportText;
     }
 
     return '';
