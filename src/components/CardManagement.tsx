@@ -63,10 +63,58 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
     `R$ ${value.toFixed(2).replace('.', ',')}`;
 
   const handleAddCard = async () => {
+    // Validation
+    if (!formData.card_name.trim()) {
+      toast({
+        title: "Erro de validação",
+        description: "Nome do cartão é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if card name already exists
+    const existingCard = configurations.find(c => 
+      c.card_name.toLowerCase() === formData.card_name.trim().toLowerCase()
+    );
+    
+    if (existingCard) {
+      toast({
+        title: "Erro de validação",
+        description: "Já existe um cartão com este nome.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate credit card requirements
+    if (formData.card_type === 'credit') {
+      if (!formData.due_day || !formData.closing_day) {
+        toast({
+          title: "Erro de validação",
+          description: "Para cartões de crédito, é obrigatório informar os dias de vencimento e fechamento.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const dueDay = parseInt(formData.due_day);
+      const closingDay = parseInt(formData.closing_day);
+      
+      if (dueDay < 1 || dueDay > 31 || closingDay < 1 || closingDay > 31) {
+        toast({
+          title: "Erro de validação",
+          description: "Os dias devem estar entre 1 e 31.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       await createConfiguration({
         group_id: groupId,
-        card_name: formData.card_name,
+        card_name: formData.card_name.trim(),
         card_type: formData.card_type,
         due_day: formData.due_day ? parseInt(formData.due_day) : undefined,
         closing_day: formData.closing_day ? parseInt(formData.closing_day) : undefined,
@@ -79,10 +127,11 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
       
       setShowAddCard(false);
       setFormData({ card_name: '', card_type: 'credit', due_day: '', closing_day: '' });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating card:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível adicionar o cartão.",
+        description: error.message || "Não foi possível adicionar o cartão.",
         variant: "destructive",
       });
     }
@@ -346,30 +395,36 @@ export const CardManagement: React.FC<CardManagementProps> = ({ groupId }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="due-day">Dia do Vencimento</Label>
-                  <Input
-                    id="due-day"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.due_day}
-                    onChange={(e) => setFormData(prev => ({ ...prev, due_day: e.target.value }))}
-                    placeholder="Ex: 10"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="closing-day">Dia do Fechamento</Label>
-                  <Input
-                    id="closing-day"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.closing_day}
-                    onChange={(e) => setFormData(prev => ({ ...prev, closing_day: e.target.value }))}
-                    placeholder="Ex: 5"
-                  />
-                </div>
+                {formData.card_type === 'credit' && (
+                  <>
+                    <div>
+                      <Label htmlFor="due-day">Dia do Vencimento *</Label>
+                      <Input
+                        id="due-day"
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.due_day}
+                        onChange={(e) => setFormData(prev => ({ ...prev, due_day: e.target.value }))}
+                        placeholder="Ex: 10"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="closing-day">Dia do Fechamento *</Label>
+                      <Input
+                        id="closing-day"
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.closing_day}
+                        onChange={(e) => setFormData(prev => ({ ...prev, closing_day: e.target.value }))}
+                        placeholder="Ex: 5"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
                 <Button onClick={handleAddCard} className="w-full">
                   Adicionar Cartão
                 </Button>

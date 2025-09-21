@@ -49,6 +49,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
     ...configurations.map(config => config.card_name)
   ].sort();
 
+  // Auto-set card type based on selected card
+  const handleCardChange = (cardName: string) => {
+    const config = configurations.find(c => c.card_name === cardName);
+    setFormData(prev => ({ 
+      ...prev, 
+      card_name: cardName,
+      card_type: config ? config.card_type : (cardName === 'Débito' ? 'debit' : 'credit')
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description || !formData.amount || !formData.category || !formData.card_name) {
@@ -188,7 +198,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
 
             <div className="space-y-2">
               <Label>Cartão</Label>
-              <Select value={formData.card_name} onValueChange={(value) => setFormData(prev => ({ ...prev, card_name: value }))}>
+              <Select value={formData.card_name} onValueChange={handleCardChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um cartão" />
                 </SelectTrigger>
@@ -202,15 +212,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
 
             <div className="space-y-2">
               <Label>Tipo do Cartão</Label>
-              <Select value={formData.card_type} onValueChange={(value: 'credit' | 'debit') => setFormData(prev => ({ ...prev, card_type: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="credit">Crédito</SelectItem>
-                  <SelectItem value="debit">Débito</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="px-3 py-2 border rounded-md bg-muted">
+                <span className="text-sm">
+                  {formData.card_type === 'credit' ? 'Crédito' : 'Débito'}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2">
