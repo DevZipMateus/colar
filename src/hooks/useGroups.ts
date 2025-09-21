@@ -158,24 +158,21 @@ export const useGroups = () => {
         return { error: 'Erro ao buscar grupo. Tente novamente.' };
       }
 
-      // If not found, try case-insensitive search
+      // If not found with exact match, try case-insensitive search using ilike
       if (!groupData) {
-        console.log('🔄 Direct search failed, trying case-insensitive...');
-        const { data: allGroups, error: allGroupsError } = await supabase
+        console.log('🔄 Direct search failed, trying case-insensitive search...');
+        const { data: foundGroup, error: searchError } = await supabase
           .from('groups')
-          .select('*');
+          .select('*')
+          .ilike('invite_code', cleanInviteCode)
+          .maybeSingle();
 
-        if (allGroupsError) {
-          console.error('❌ Error fetching all groups:', allGroupsError);
+        if (searchError) {
+          console.error('❌ Error in case-insensitive search:', searchError);
           return { error: 'Erro ao buscar grupo. Tente novamente.' };
         }
 
-        console.log('📋 All groups for comparison:', allGroups?.map(g => ({ id: g.id, code: g.invite_code })));
-        
-        groupData = allGroups?.find(g => 
-          g.invite_code.toLowerCase() === cleanInviteCode
-        ) || null;
-        
+        groupData = foundGroup;
         console.log('🎯 Found group with case-insensitive search:', groupData?.id);
       }
 
