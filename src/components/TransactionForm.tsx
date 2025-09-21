@@ -13,6 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { useFinancialData, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 import { useExpenseCategories, ExpenseCategory } from '@/hooks/useExpenseCategories';
+import { useCardConfigurations } from '@/hooks/useCardConfigurations';
 import { toast } from '@/hooks/use-toast';
 import { formatDateOnly, parseDateOnly } from '@/lib/utils';
 
@@ -27,6 +28,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
   const { addTransaction, updateTransaction } = useFinancialData(groupId);
   const { createInstallments } = useInstallmentTracking(groupId);
   const { categories } = useExpenseCategories(groupId);
+  const { configurations } = useCardConfigurations(groupId);
   const [formData, setFormData] = useState({
     description: editingTransaction?.description || '',
     amount: editingTransaction?.amount?.toString() || '',
@@ -40,10 +42,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const cards = [
-    'Nubank', 'Magalu', 'Renner', 'Carrefour', 'Inter', 'Itaú', 
-    'Bradesco', 'Banco do Brasil', 'Santander', 'Débito', 'Dinheiro'
-  ];
+  // Combine configured cards with basic options
+  const cardOptions = [
+    'Dinheiro',
+    'Débito',
+    ...configurations.map(config => config.card_name)
+  ].sort();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,11 +192,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um cartão" />
                 </SelectTrigger>
-                <SelectContent>
-                  {cards.map(card => (
-                    <SelectItem key={card} value={card}>{card}</SelectItem>
-                  ))}
-                </SelectContent>
+                 <SelectContent>
+                   {cardOptions.map(card => (
+                     <SelectItem key={card} value={card}>{card}</SelectItem>
+                   ))}
+                 </SelectContent>
               </Select>
             </div>
 
