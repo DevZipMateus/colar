@@ -16,7 +16,7 @@ interface TransactionListProps {
 }
 
 export const TransactionList = ({ groupId }: TransactionListProps) => {
-  const { transactions, loading, updateTransaction, deleteTransaction } = useFinancialData(groupId);
+  const { transactions, loading, updateTransaction, deleteTransaction, fetchTransactions } = useFinancialData(groupId);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   
@@ -52,6 +52,8 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
   const handleEditSuccess = () => {
     setShowEditForm(false);
     setEditingTransaction(null);
+    // Refresh data to ensure real-time updates
+    fetchTransactions();
   };
 
   const isFixedExpense = (transaction: Transaction) => {
