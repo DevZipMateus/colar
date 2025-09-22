@@ -83,6 +83,7 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
     if (window.confirm('Tem certeza que deseja excluir esta divisão?')) {
       try {
         await deleteSplit(splitId);
+        await refetch(); // Refresh data after deletion
         toast({
           title: "Divisão excluída",
           description: "A divisão foi excluída com sucesso!",
@@ -96,6 +97,10 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
         });
       }
     }
+  };
+
+  const handleEditSuccess = async () => {
+    await refetch(); // Refresh data after edit
   };
 
   const getSplitStats = (splitId: string) => {
@@ -267,6 +272,16 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
             );
           })}
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingSplit && (
+        <DivisionEditModal
+          split={editingSplit}
+          isOpen={!!editingSplit}
+          onClose={() => setEditingSplit(null)}
+          onSuccess={handleEditSuccess}
+        />
       )}
     </div>
   );

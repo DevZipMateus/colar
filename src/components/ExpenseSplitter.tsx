@@ -165,60 +165,93 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   };
 
   const handleCreateSplit = async () => {
-    if (selectedTransactions.length === 0 || !splitName.trim()) {
+    if (selectedTransactions.length === 0) {
       toast({
         title: "Erro",
-        description: "Selecione transações e digite um nome para a divisão",
+        description: "Selecione pelo menos uma transação",
         variant: "destructive"
       });
       return;
     }
 
-    const totalAmount = getTotalSelectedAmount();
-    const totalShares = Object.values(memberShares).reduce((sum, amount) => sum + amount, 0);
+    if (selectedExistingSplit && selectedExistingSplit !== 'select') {
+      // Adding to existing split
+      try {
+        setIsCreating(true);
+        await addTransactionsToSplit(selectedExistingSplit, selectedTransactions);
+        
+        toast({
+          title: "Sucesso",
+          description: "Transações adicionadas à divisão existente!",
+        });
 
-    if (Math.abs(totalAmount - totalShares) > 0.01) {
-      toast({
-        title: "Erro",
-        description: "O total das cotas deve ser igual ao valor total das transações",
-        variant: "destructive"
-      });
-      return;
-    }
+        // Reset form
+        setSelectedTransactions([]);
+        setSelectedExistingSplit('');
+        setShowCreateDialog(false);
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao adicionar transações à divisão",
+          variant: "destructive"
+        });
+      } finally {
+        setIsCreating(false);
+      }
+    } else {
+      // Creating new split
+      if (!splitName.trim()) {
+        toast({
+          title: "Erro",
+          description: "Digite um nome para a divisão",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    try {
-      const memberSharesArray = Object.entries(memberShares)
-        .filter(([_, amount]) => amount > 0)
-        .map(([userId, amount]) => ({ userId, amount }));
+      const totalAmount = getTotalSelectedAmount();
+      const totalShares = Object.values(memberShares).reduce((sum, amount) => sum + amount, 0);
 
-      // Create a split for each selected transaction
-      for (const transactionId of selectedTransactions) {
-        const transaction = transactions.find(t => t.id === transactionId);
-        if (transaction) {
+      if (Math.abs(totalAmount - totalShares) > 0.01) {
+        toast({
+          title: "Erro",
+          description: "O total das cotas deve ser igual ao valor total das transações",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      try {
+        setIsCreating(true);
+        const memberSharesArray = Object.entries(memberShares)
+          .filter(([_, amount]) => amount > 0)
+          .map(([userId, amount]) => ({ userId, amount }));
+
         // Create the split first
-        const split = await createExpenseSplit(splitName);
+        const split = await createExpenseSplit(splitName, '', memberSharesArray);
         
         // Add transactions to the split
         await addTransactionsToSplit(split.id, selectedTransactions);
-        }
+
+        toast({
+          title: "Sucesso",
+          description: "Divisão de gastos criada com sucesso!",
+        });
+
+        // Reset form
+        setSelectedTransactions([]);
+        setSplitName('');
+        setMemberShares({});
+        setShowCreateDialog(false);
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao criar divisão de gastos",
+          variant: "destructive"
+        });
+      } finally {
+        setIsCreating(false);
       }
-
-      toast({
-        title: "Sucesso",
-        description: "Divisão de gastos criada com sucesso!",
-      });
-
-      // Reset form
-      setSelectedTransactions([]);
-      setSplitName('');
-      setMemberShares({});
-      setShowCreateDialog(false);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao criar divisão de gastos",
-        variant: "destructive"
-      });
     }
   };
 
@@ -678,10 +711,10 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
 
                       <Button 
                         onClick={handleCreateSplit}
-                        disabled={selectedTransactions.length === 0 || (!selectedExistingSplit && !splitName.trim()) || (selectedExistingSplit === 'select')}
+                        disabled={isCreating || selectedTransactions.length === 0 || (!selectedExistingSplit && !splitName.trim()) || (selectedExistingSplit === 'select')}
                         className="w-full"
                       >
-                        {selectedExistingSplit && selectedExistingSplit !== 'select' ? 'Adicionar à Divisão' : 'Criar Divisão'}
+                        {isCreating ? 'Processando...' : (selectedExistingSplit && selectedExistingSplit !== 'select' ? 'Adicionar à Divisão' : 'Criar Divisão')}
                       </Button>
                     </div>
                   </DialogContent>
