@@ -38,6 +38,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
     card_type: (editingTransaction?.card_type || 'credit') as 'credit' | 'debit',
     installments: editingTransaction?.installments?.toString() || '',
     is_recurring: editingTransaction?.is_recurring || false,
+    marked_for_split: editingTransaction?.marked_for_split || false,
+    split_name: editingTransaction?.split_name || '',
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -85,6 +87,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
         card_type: formData.card_type,
         installments,
         is_recurring: formData.is_recurring,
+        marked_for_split: formData.marked_for_split,
+        split_name: formData.marked_for_split ? formData.split_name : null,
       };
 
       let result;
@@ -240,6 +244,27 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
               />
               <Label htmlFor="recurring">Gasto fixo/recorrente</Label>
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="marked_for_split"
+                checked={formData.marked_for_split}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, marked_for_split: !!checked }))}
+              />
+              <Label htmlFor="marked_for_split">Marcar para divisão posterior</Label>
+            </div>
+
+            {formData.marked_for_split && (
+              <div className="space-y-2">
+                <Label htmlFor="split_name">Nome da divisão (opcional)</Label>
+                <Input
+                  id="split_name"
+                  value={formData.split_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, split_name: e.target.value }))}
+                  placeholder="Ex: Compras do mercado"
+                />
+              </div>
+            )}
 
             <div className="flex space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">

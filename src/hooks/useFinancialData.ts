@@ -16,6 +16,8 @@ export interface Transaction {
   installments?: number;
   installment_number?: number;
   is_recurring?: boolean;
+  marked_for_split?: boolean;
+  split_name?: string;
   created_by: string;
   created_at: string;
   user_name?: string;

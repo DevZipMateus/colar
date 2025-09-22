@@ -216,6 +216,8 @@ export type Database = {
           installment_number: number | null
           installments: number | null
           is_recurring: boolean | null
+          marked_for_split: boolean | null
+          split_name: string | null
           updated_at: string
         }
         Insert: {
@@ -232,6 +234,8 @@ export type Database = {
           installment_number?: number | null
           installments?: number | null
           is_recurring?: boolean | null
+          marked_for_split?: boolean | null
+          split_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -248,6 +252,8 @@ export type Database = {
           installment_number?: number | null
           installments?: number | null
           is_recurring?: boolean | null
+          marked_for_split?: boolean | null
+          split_name?: string | null
           updated_at?: string
         }
         Relationships: []
