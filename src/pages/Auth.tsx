@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import InviteStatus from '@/components/InviteStatus';
 
 const Auth = () => {
@@ -97,8 +98,19 @@ const Auth = () => {
 
     setResendLoading(true);
     try {
-      await resetPassword(email);
-      setSuccess('Email de confirmação reenviado!');
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        setError('Erro ao reenviar email de confirmação');
+      } else {
+        setSuccess('Email de confirmação reenviado! Verifique sua caixa de entrada.');
+      }
     } catch (err) {
       setError('Erro ao reenviar email');
     }

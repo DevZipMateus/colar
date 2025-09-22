@@ -49,8 +49,8 @@ const PendingInviteNotification = () => {
 
     checkPendingInvite();
     
-    // Check more frequently initially, then less frequently
-    const interval = setInterval(checkPendingInvite, 2000);
+    // Check less frequently to avoid performance issues
+    const interval = setInterval(checkPendingInvite, 5000);
     return () => clearInterval(interval);
   }, [user]);
 
