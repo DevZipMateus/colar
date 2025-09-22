@@ -25,6 +25,7 @@ interface ExpenseSplitterProps {
 
 type DateFilter = 'all' | 'week' | 'month' | '3months' | 'custom';
 type StatusFilter = 'all' | 'not_divided' | 'marked_for_split' | 'already_divided';
+type ExpenseTypeFilter = 'all' | 'fixed' | 'variable';
 
 export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
@@ -41,6 +42,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [cardFilter, setCardFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
+  const [expenseTypeFilter, setExpenseTypeFilter] = useState<ExpenseTypeFilter>('all');
 
   const { transactions } = useFinancialData(groupId);
   const { splits, payments, splitTransactions, createExpenseSplit, addTransactionsToSplit, markPaymentAsSettled, getUserOwedAmount } = useExpenseSplits(groupId);
@@ -67,6 +69,18 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
       default:
         return null;
     }
+  };
+
+  const isFixedExpenseCategory = (category: string) => {
+    const lowerCategory = category.toLowerCase();
+    return lowerCategory.includes('aluguel') || 
+           lowerCategory.includes('conta') || 
+           lowerCategory.includes('assinatura') ||
+           lowerCategory.includes('internet') ||
+           lowerCategory.includes('luz') ||
+           lowerCategory.includes('água') ||
+           lowerCategory.includes('gas') ||
+           lowerCategory.includes('gás');
   };
 
     const filteredTransactions = useMemo(() => {
@@ -117,9 +131,17 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
           return false;
         }
 
+        // Expense type filter (fixed/variable)
+        if (expenseTypeFilter === 'fixed' && !isFixedExpenseCategory(t.category)) {
+          return false;
+        }
+        if (expenseTypeFilter === 'variable' && isFixedExpenseCategory(t.category)) {
+          return false;
+        }
+
         return true;
       }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, searchTerm, dateFilter, statusFilter, categoryFilter, cardFilter, userFilter, splits, splitTransactions]);
+    }, [transactions, searchTerm, dateFilter, statusFilter, categoryFilter, cardFilter, userFilter, expenseTypeFilter, splits, splitTransactions]);
 
   const handleTransactionSelect = (transactionId: string, checked: boolean) => {
     if (checked) {
@@ -391,7 +413,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
           </div>
 
           {/* Filter Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
             <div>
               <Label className="text-xs">Período</Label>
               <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as DateFilter)}>
@@ -468,6 +490,20 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
                       </SelectItem>
                     );
                   })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <Select value={expenseTypeFilter} onValueChange={(value) => setExpenseTypeFilter(value as ExpenseTypeFilter)}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="fixed">Contas Fixas</SelectItem>
+                  <SelectItem value="variable">Gastos Variáveis</SelectItem>
                 </SelectContent>
               </Select>
             </div>
