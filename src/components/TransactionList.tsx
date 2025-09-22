@@ -54,16 +54,8 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
     setEditingTransaction(null);
   };
 
-  const isFixedExpenseCategory = (category: string) => {
-    const lowerCategory = category.toLowerCase();
-    return lowerCategory.includes('aluguel') || 
-           lowerCategory.includes('conta') || 
-           lowerCategory.includes('assinatura') ||
-           lowerCategory.includes('internet') ||
-           lowerCategory.includes('luz') ||
-           lowerCategory.includes('água') ||
-           lowerCategory.includes('gas') ||
-           lowerCategory.includes('gás');
+  const isFixedExpense = (transaction: Transaction) => {
+    return transaction.is_recurring === true;
   };
 
   // Get unique values for filters
@@ -89,8 +81,8 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
       const matchesCard = filterCard === 'all' || transaction.card_name === filterCard;
       const matchesType = filterType === 'all' || transaction.card_type === filterType;
       const matchesExpenseType = filterExpenseType === 'all' || 
-        (filterExpenseType === 'fixed' && isFixedExpenseCategory(transaction.category)) ||
-        (filterExpenseType === 'variable' && !isFixedExpenseCategory(transaction.category));
+        (filterExpenseType === 'fixed' && isFixedExpense(transaction)) ||
+        (filterExpenseType === 'variable' && !isFixedExpense(transaction));
       
       return matchesSearch && matchesCategory && matchesCard && matchesType && matchesExpenseType;
     });

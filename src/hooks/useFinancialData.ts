@@ -218,25 +218,14 @@ export const useFinancialData = (groupId: string | null) => {
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
     // Calculate specific expense categories for the new breakdown
-    const isFixedExpenseCategory = (category: string) => {
-      const lowerCategory = category.toLowerCase();
-      return lowerCategory.includes('aluguel') || 
-             lowerCategory.includes('conta') || 
-             lowerCategory.includes('assinatura') ||
-             lowerCategory.includes('internet') ||
-             lowerCategory.includes('luz') ||
-             lowerCategory.includes('água') ||
-             lowerCategory.includes('gas') ||
-             lowerCategory.includes('gás');
-    };
 
     const fixedExpenses = monthTransactions
-      .filter(t => isFixedExpenseCategory(t.category))
+      .filter(t => t.is_recurring === true)
       .reduce((sum, t) => sum + Math.abs(t.amount), 0) +
       monthlyInstallments
         .filter(installment => {
           const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
-          return isFixedExpenseCategory(originalTransaction?.category || '');
+          return originalTransaction?.is_recurring === true;
         })
         .reduce((sum, installment) => sum + Math.abs(installment.amount), 0);
 

@@ -71,16 +71,8 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
     }
   };
 
-  const isFixedExpenseCategory = (category: string) => {
-    const lowerCategory = category.toLowerCase();
-    return lowerCategory.includes('aluguel') || 
-           lowerCategory.includes('conta') || 
-           lowerCategory.includes('assinatura') ||
-           lowerCategory.includes('internet') ||
-           lowerCategory.includes('luz') ||
-           lowerCategory.includes('água') ||
-           lowerCategory.includes('gas') ||
-           lowerCategory.includes('gás');
+  const isFixedExpense = (transaction: Transaction) => {
+    return transaction.is_recurring === true;
   };
 
     const filteredTransactions = useMemo(() => {
@@ -132,10 +124,10 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
         }
 
         // Expense type filter (fixed/variable)
-        if (expenseTypeFilter === 'fixed' && !isFixedExpenseCategory(t.category)) {
+        if (expenseTypeFilter === 'fixed' && !isFixedExpense(t)) {
           return false;
         }
-        if (expenseTypeFilter === 'variable' && isFixedExpenseCategory(t.category)) {
+        if (expenseTypeFilter === 'variable' && isFixedExpense(t)) {
           return false;
         }
 
