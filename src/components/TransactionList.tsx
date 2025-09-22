@@ -26,6 +26,7 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterCard, setFilterCard] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterExpenseType, setFilterExpenseType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const formatCurrency = (value: number) => {
@@ -53,6 +54,18 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
     setEditingTransaction(null);
   };
 
+  const isFixedExpenseCategory = (category: string) => {
+    const lowerCategory = category.toLowerCase();
+    return lowerCategory.includes('aluguel') || 
+           lowerCategory.includes('conta') || 
+           lowerCategory.includes('assinatura') ||
+           lowerCategory.includes('internet') ||
+           lowerCategory.includes('luz') ||
+           lowerCategory.includes('água') ||
+           lowerCategory.includes('gas') ||
+           lowerCategory.includes('gás');
+  };
+
   // Get unique values for filters
   const uniqueCategories = useMemo(() => {
     const categories = [...new Set(transactions.map(t => t.category))];
@@ -75,8 +88,11 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
       const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
       const matchesCard = filterCard === 'all' || transaction.card_name === filterCard;
       const matchesType = filterType === 'all' || transaction.card_type === filterType;
+      const matchesExpenseType = filterExpenseType === 'all' || 
+        (filterExpenseType === 'fixed' && isFixedExpenseCategory(transaction.category)) ||
+        (filterExpenseType === 'variable' && !isFixedExpenseCategory(transaction.category));
       
-      return matchesSearch && matchesCategory && matchesCard && matchesType;
+      return matchesSearch && matchesCategory && matchesCard && matchesType && matchesExpenseType;
     });
 
     // Sort transactions
@@ -100,7 +116,7 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
     });
 
     return filtered;
-  }, [transactions, sortBy, sortOrder, filterCategory, filterCard, filterType, searchTerm]);
+  }, [transactions, sortBy, sortOrder, filterCategory, filterCard, filterType, filterExpenseType, searchTerm]);
 
   const handleSort = (newSortBy: typeof sortBy) => {
     if (sortBy === newSortBy) {
@@ -153,7 +169,7 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
             </div>
             
             {/* Filters Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <Select value={filterCategory} onValueChange={setFilterCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Categoria" />
@@ -186,6 +202,17 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                   <SelectItem value="all">Todos os tipos</SelectItem>
                   <SelectItem value="credit">Crédito</SelectItem>
                   <SelectItem value="debit">Débito</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterExpenseType} onValueChange={setFilterExpenseType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="fixed">Contas Fixas</SelectItem>
+                  <SelectItem value="variable">Gastos Variáveis</SelectItem>
                 </SelectContent>
               </Select>
               
