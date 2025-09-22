@@ -86,7 +86,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
       const existingSplits = splits.filter(s => s.transaction_id === t.id);
       const hasBeenDivided = existingSplits.length > 0;
       
-      if (statusFilter === 'not_divided' && (hasBeenDivided || t.marked_for_split)) {
+      if (statusFilter === 'not_divided' && hasBeenDivided) {
         return false;
       }
       if (statusFilter === 'marked_for_split' && !t.marked_for_split) {
