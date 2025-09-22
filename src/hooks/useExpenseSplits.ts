@@ -213,15 +213,26 @@ export const useExpenseSplits = (groupId: string) => {
         return;
       }
 
-      // Get transaction details and sum amounts
+      // Get transaction details including installment information
       const { data: transactions, error: txError } = await supabase
         .from('financial_transactions')
-        .select('amount')
+        .select('amount, installments')
         .in('id', splitTxs.map(st => st.transaction_id));
 
       if (txError) throw txError;
 
-      const totalAmount = transactions?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
+      // Calculate total using installment amounts where applicable
+      const totalAmount = transactions?.reduce((sum, tx) => {
+        const amount = Number(tx.amount);
+        
+        // If transaction has installments, use the installment amount
+        if (tx.installments && tx.installments > 1) {
+          return sum + (amount / tx.installments);
+        }
+        
+        // Otherwise use the full transaction amount
+        return sum + amount;
+      }, 0) || 0;
 
       // Update split total
       const { error } = await supabase

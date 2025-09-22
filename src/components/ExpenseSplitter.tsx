@@ -140,7 +140,16 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const getTotalSelectedAmount = () => {
     return selectedTransactions.reduce((total, transactionId) => {
       const transaction = transactions.find(t => t.id === transactionId);
-      return total + (transaction?.amount || 0);
+      if (!transaction) return total;
+      
+      // If transaction has installments, use the installment amount
+      if (transaction.installments && transaction.installments > 1) {
+        const installmentAmount = transaction.amount / transaction.installments;
+        return total + installmentAmount;
+      }
+      
+      // Otherwise use the full transaction amount
+      return total + transaction.amount;
     }, 0);
   };
 
@@ -288,9 +297,10 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
     }
     
     if (transaction.installments && transaction.installments > 1) {
+      const installmentAmount = transaction.amount / transaction.installments;
       badges.push(
         <Badge key="installment" variant="outline">
-          {transaction.installment_number}/{transaction.installments}
+          Parcela {transaction.installment_number}/{transaction.installments} - {formatCurrency(installmentAmount)}
         </Badge>
       );
     }
