@@ -14,7 +14,8 @@ import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
 import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useCardConfigurations } from '@/hooks/useCardConfigurations';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -30,6 +31,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const [splitName, setSplitName] = useState('');
   const [memberShares, setMemberShares] = useState<Record<string, number>>({});
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,10 +42,10 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const [userFilter, setUserFilter] = useState('all');
 
   const { transactions } = useFinancialData(groupId);
-  const { splits, payments, createExpenseSplit, markPaymentAsSettled, getUserOwedAmount } = useExpenseSplits(groupId);
+  const { splits, payments, splitTransactions, createExpenseSplit, addTransactionsToSplit, markPaymentAsSettled, getUserOwedAmount } = useExpenseSplits(groupId);
   const { members } = useGroupMembers(groupId);
   const { categories } = useExpenseCategories(groupId);
-  const { configurations } = useCardConfigurations(groupId);
+  const { toast } = useToast();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -52,7 +54,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
     }).format(value);
   };
 
-  const getDateFilterRange = (filter: DateFilter) => {
+  const getDateFilterRange = (filter: DateFilter = dateFilter) => {
     const now = new Date();
     switch (filter) {
       case 'week':
@@ -66,57 +68,57 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
     }
   };
 
-  const filteredTransactions = useMemo(() => {
-    let filtered = transactions.filter(t => {
-      // Search filter
-      if (searchTerm && !t.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return false;
-      }
-
-      // Date filter
-      const dateRange = getDateFilterRange(dateFilter);
-      if (dateRange) {
-        const transactionDate = new Date(t.date);
-        if (transactionDate < dateRange.start || transactionDate > dateRange.end) {
+    const filteredTransactions = useMemo(() => {
+      return transactions.filter((t) => {
+        // Search filter
+        if (searchTerm && !t.description.toLowerCase().includes(searchTerm.toLowerCase())) {
           return false;
         }
-      }
 
-      // Status filter
-      const existingSplits = splits.filter(s => s.transaction_id === t.id);
-      const hasBeenDivided = existingSplits.length > 0;
-      
-      if (statusFilter === 'not_divided' && hasBeenDivided) {
-        return false;
-      }
-      if (statusFilter === 'marked_for_split' && !t.marked_for_split) {
-        return false;
-      }
-      if (statusFilter === 'already_divided' && !hasBeenDivided) {
-        return false;
-      }
+        // Date filter
+        const transactionDate = new Date(t.date);
+        const dateRange = getDateFilterRange(dateFilter);
+        if (dateRange) {
+          if (transactionDate < dateRange.start || transactionDate > dateRange.end) {
+            return false;
+          }
+        }
 
-      // Category filter
-      if (categoryFilter !== 'all' && t.category !== categoryFilter) {
-        return false;
-      }
+        // Status filter  
+        const splitTxIds = splitTransactions
+          .filter(st => st.transaction_id === t.id)
+          .map(st => st.split_id);
+        const relatedSplits = splits.filter(s => splitTxIds.includes(s.id));
+        const hasBeenDivided = relatedSplits.length > 0;
+        
+        if (statusFilter === 'not_divided' && hasBeenDivided) {
+          return false;
+        }
+        if (statusFilter === 'marked_for_split' && !t.marked_for_split) {
+          return false;
+        }
+        if (statusFilter === 'already_divided' && !hasBeenDivided) {
+          return false;
+        }
 
-      // Card filter
-      if (cardFilter !== 'all' && t.card_name !== cardFilter) {
-        return false;
-      }
+        // Category filter
+        if (categoryFilter !== 'all' && t.category !== categoryFilter) {
+          return false;
+        }
 
-      // User filter
-      if (userFilter !== 'all' && t.created_by !== userFilter) {
-        return false;
-      }
+        // Card filter
+        if (cardFilter !== 'all' && t.card_name !== cardFilter) {
+          return false;
+        }
 
-      return true;
-    });
+        // User filter
+        if (userFilter !== 'all' && t.created_by !== userFilter) {
+          return false;
+        }
 
-    // Sort by date (most recent first)
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchTerm, dateFilter, statusFilter, categoryFilter, cardFilter, userFilter, splits]);
+        return true;
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [transactions, searchTerm, dateFilter, statusFilter, categoryFilter, cardFilter, userFilter, splits, splitTransactions]);
 
   const handleTransactionSelect = (transactionId: string, checked: boolean) => {
     if (checked) {
@@ -192,15 +194,11 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
       for (const transactionId of selectedTransactions) {
         const transaction = transactions.find(t => t.id === transactionId);
         if (transaction) {
-          await createExpenseSplit(
-            transactionId,
-            `${splitName} - ${transaction.description}`,
-            transaction.amount,
-            memberSharesArray.map(share => ({
-              userId: share.userId,
-              amount: (share.amount / totalAmount) * transaction.amount
-            }))
-          );
+        // Create the split first
+        const split = await createExpenseSplit(splitName);
+        
+        // Add transactions to the split
+        await addTransactionsToSplit(split.id, selectedTransactions);
         }
       }
 
@@ -263,7 +261,12 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
       );
     }
     
-    const existingSplits = splits.filter(s => s.transaction_id === transaction.id);
+    const existingSplits = splits.filter(s => {
+      const splitTxIds = splitTransactions
+        .filter(st => st.split_id === s.id)
+        .map(st => st.transaction_id);
+      return splitTxIds.includes(transaction.id);
+    });
     if (existingSplits.length > 0) {
       badges.push(
         <Badge key="divided" variant="default" className="bg-green-100 text-green-800">

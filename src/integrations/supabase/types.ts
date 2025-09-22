@@ -122,31 +122,34 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          description: string | null
           group_id: string
           id: string
           split_name: string
+          status: string | null
           total_amount: number
-          transaction_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
+          description?: string | null
           group_id: string
           id?: string
           split_name: string
+          status?: string | null
           total_amount: number
-          transaction_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
+          description?: string | null
           group_id?: string
           id?: string
           split_name?: string
+          status?: string | null
           total_amount?: number
-          transaction_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -521,6 +524,27 @@ export type Database = {
           split_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      split_transactions: {
+        Row: {
+          created_at: string
+          id: string
+          split_id: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          split_id: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          split_id?: string
+          transaction_id?: string
         }
         Relationships: []
       }
