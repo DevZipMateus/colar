@@ -32,6 +32,7 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
   const [memberShares, setMemberShares] = useState<Record<string, number>>({});
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedExistingSplit, setSelectedExistingSplit] = useState<string>('');
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -574,15 +575,64 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
                         </p>
                       </div>
 
+                      {/* Option to select existing split */}
                       <div>
-                        <Label htmlFor="splitName">Nome da Divisão</Label>
-                        <Input
-                          id="splitName"
-                          value={splitName}
-                          onChange={(e) => setSplitName(e.target.value)}
-                          placeholder="Ex: Compras do mercado"
-                        />
+                        <Label>Opção de Divisão</Label>
+                        <div className="mt-2 space-y-2">
+                          <label className="flex items-center space-x-2">
+                            <input 
+                              type="radio" 
+                              name="splitOption" 
+                              checked={!selectedExistingSplit}
+                              onChange={() => {
+                                setSelectedExistingSplit('');
+                                setSplitName('');
+                              }}
+                            />
+                            <span className="text-sm">Criar nova divisão</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input 
+                              type="radio" 
+                              name="splitOption" 
+                              checked={!!selectedExistingSplit}
+                              onChange={() => setSelectedExistingSplit('select')}
+                            />
+                            <span className="text-sm">Adicionar à divisão existente</span>
+                          </label>
+                        </div>
                       </div>
+
+                      {selectedExistingSplit ? (
+                        <div>
+                          <Label htmlFor="existingSplit">Selecionar Divisão</Label>
+                          <Select 
+                            value={selectedExistingSplit === 'select' ? '' : selectedExistingSplit} 
+                            onValueChange={setSelectedExistingSplit}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha uma divisão ativa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {splits.filter(s => s.status === 'active').map(split => (
+                                <SelectItem key={split.id} value={split.id}>
+                                  {split.split_name} - {formatCurrency(split.total_amount)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label htmlFor="splitName">Nome da Divisão</Label>
+                          <Input
+                            id="splitName"
+                            value={splitName}
+                            onChange={(e) => setSplitName(e.target.value)}
+                            placeholder="Ex: Compras do mercado"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -628,10 +678,10 @@ export const ExpenseSplitter = ({ groupId }: ExpenseSplitterProps) => {
 
                       <Button 
                         onClick={handleCreateSplit}
-                        disabled={selectedTransactions.length === 0 || !splitName.trim()}
+                        disabled={selectedTransactions.length === 0 || (!selectedExistingSplit && !splitName.trim()) || (selectedExistingSplit === 'select')}
                         className="w-full"
                       >
-                        Criar Divisão
+                        {selectedExistingSplit && selectedExistingSplit !== 'select' ? 'Adicionar à Divisão' : 'Criar Divisão'}
                       </Button>
                     </div>
                   </DialogContent>

@@ -10,6 +10,7 @@ import { Plus, FileText, Edit, Trash2, DollarSign, Users, CheckCircle } from 'lu
 import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
 import { useToast } from '@/hooks/use-toast';
+import { DivisionEditModal } from './DivisionEditModal';
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -26,8 +27,9 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSplitName, setNewSplitName] = useState('');
   const [newSplitDescription, setNewSplitDescription] = useState('');
+  const [editingSplit, setEditingSplit] = useState<any>(null);
   
-  const { splits, loading, createExpenseSplit, updateSplitStatus, deleteSplit, getPaymentsBySplit } = useExpenseSplits(groupId);
+  const { splits, loading, createExpenseSplit, updateSplitStatus, deleteSplit, getPaymentsBySplit, refetch } = useExpenseSplits(groupId);
   const { members } = useGroupMembers(groupId);
   const { toast } = useToast();
 
@@ -205,8 +207,17 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
                         variant="outline"
                         size="sm"
                         onClick={() => onOpenReport(split.id)}
+                        title="Ver relatório"
                       >
                         <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingSplit(split)}
+                        title="Editar divisão"
+                      >
+                        <Edit className="h-4 w-4" />
                       </Button>
                       {split.status === 'active' && (
                         <>
@@ -214,6 +225,7 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
                             variant="outline"
                             size="sm"
                             onClick={() => handleFinalizeSplit(split.id)}
+                            title="Finalizar divisão"
                           >
                             <CheckCircle className="h-4 w-4" />
                           </Button>
@@ -221,6 +233,7 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteSplit(split.id)}
+                            title="Excluir divisão"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

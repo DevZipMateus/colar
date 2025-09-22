@@ -13,7 +13,7 @@ import { CardManagement } from './CardManagement';
 import { ReportGenerator } from './ReportGenerator';
 import { FinancialOverview } from './FinancialOverview';
 import { MonthlyExpenseView } from './MonthlyExpenseView';
-import { ExpenseSplitter } from './ExpenseSplitter';
+import { ExpenseDivisions } from './ExpenseDivisions';
 
 interface FinancialDashboardProps {
   groupId: string;
@@ -124,7 +124,7 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
         </TabsContent>
 
         <TabsContent value="splits" className="space-y-4">
-          <ExpenseSplitter groupId={groupId} />
+          <ExpenseDivisions groupId={groupId} />
         </TabsContent>
 
         <TabsContent value="cards" className="space-y-4">
