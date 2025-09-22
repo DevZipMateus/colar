@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, CreditCard, Calendar, CheckCircle, Users, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CreditCard, Calendar, CheckCircle, Users, User, Clock, AlertTriangle } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 import { useCardConfigurations } from '@/hooks/useCardConfigurations';
+import { useCardBillPayments } from '@/hooks/useCardBillPayments';
 
 interface MonthlyExpenseViewProps {
   groupId: string;
@@ -27,6 +28,7 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
   const { transactions, summary } = useFinancialData(groupId);
   const { installments, markInstallmentAsPaid } = useInstallmentTracking(groupId);
   const { configurations } = useCardConfigurations(groupId);
+  const { markBillAsPaid, markBillAsUnpaid, getBillPaymentStatus } = useCardBillPayments(groupId);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -81,13 +83,19 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
     
     const cardTotals = new Map<string, number>();
     
-    // Add regular credit card transactions
+    // Add regular credit card transactions (corrigido para parcelas)
     creditCardExpenses.forEach(transaction => {
       const current = cardTotals.get(transaction.card_name) || 0;
-      cardTotals.set(transaction.card_name, current + transaction.amount);
+      // Para transações parceladas, usar apenas o valor da parcela do mês
+      if (transaction.installments && transaction.installments > 1) {
+        cardTotals.set(transaction.card_name, current + (transaction.amount / transaction.installments));
+      } else {
+        // Para transações à vista, usar valor total
+        cardTotals.set(transaction.card_name, current + transaction.amount);
+      }
     });
     
-    // Add installment payments
+    // Add installment payments (já tem valor correto da parcela)
     installmentExpenses.forEach(installment => {
       const transaction = transactions.find(t => t.id === installment.transaction_id);
       if (transaction && transaction.card_type === 'credit') {
@@ -101,6 +109,47 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
       amount,
       dueDay: configurations.find(c => c.card_name === cardName)?.due_day || 10
     }));
+  };
+
+  // Calcular dias até vencimento
+  const calculateDaysUntilDue = (dueDay: number) => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    // Se estivermos vendo um mês diferente do atual, retornar null
+    if (selectedMonth - 1 !== currentMonth || selectedYear !== currentYear) {
+      return null;
+    }
+    
+    const dueDate = new Date(currentYear, currentMonth, dueDay);
+    
+    // Se o vencimento já passou neste mês, considerar próximo mês
+    if (dueDate < today) {
+      dueDate.setMonth(dueDate.getMonth() + 1);
+    }
+    
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Obter cor baseada nos dias até vencimento
+  const getDueDateColor = (days: number | null) => {
+    if (days === null) return 'bg-muted';
+    if (days < 0) return 'bg-destructive';
+    if (days <= 7) return 'bg-destructive';
+    if (days <= 15) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  // Obter ícone baseado nos dias até vencimento
+  const getDueDateIcon = (days: number | null) => {
+    if (days === null) return Clock;
+    if (days < 0) return AlertTriangle;
+    if (days <= 7) return AlertTriangle;
+    return Clock;
   };
 
   const isCurrentMonth = selectedMonth === currentDate.getMonth() + 1 && selectedYear === currentDate.getFullYear();
@@ -257,24 +306,77 @@ export const MonthlyExpenseView = ({ groupId }: MonthlyExpenseViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {creditCardBills.map(bill => (
-                <div
-                  key={bill.cardName}
-                  className={`p-4 rounded-lg border ${
-                    isCurrentMonth ? 'border-primary bg-primary/5' : 'border-border'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium">{bill.cardName}</h4>
-                    <Badge variant="outline">
-                      Vence dia {bill.dueDay}
-                    </Badge>
+              {creditCardBills.map(bill => {
+                const daysUntilDue = calculateDaysUntilDue(bill.dueDay);
+                const isPaid = getBillPaymentStatus(bill.cardName, selectedMonth, selectedYear);
+                const DueDateIcon = getDueDateIcon(daysUntilDue);
+                
+                return (
+                  <div
+                    key={bill.cardName}
+                    className={`p-4 rounded-lg border ${
+                      isPaid 
+                        ? 'border-green-500 bg-green-50/50' 
+                        : isCurrentMonth 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{bill.cardName}</h4>
+                        {isPaid && <CheckCircle className="h-4 w-4 text-green-600" />}
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        {daysUntilDue !== null && (
+                          <Badge 
+                            className={`text-xs text-white ${getDueDateColor(daysUntilDue)}`}
+                          >
+                            <DueDateIcon className="h-3 w-3 mr-1" />
+                            {daysUntilDue < 0 
+                              ? `${Math.abs(daysUntilDue)} dias vencido`
+                              : daysUntilDue === 0 
+                                ? 'Vence hoje'
+                                : `${daysUntilDue} dias`
+                            }
+                          </Badge>
+                        )}
+                        <Badge variant="outline">
+                          Vence dia {bill.dueDay}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-primary mb-3">
+                      {formatCurrency(bill.amount)}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Fatura do mês {isPaid && '(Paga)'}
+                    </p>
+                    <div className="flex gap-2">
+                      {isPaid ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => markBillAsUnpaid(bill.cardName, selectedMonth, selectedYear)}
+                          className="flex-1"
+                        >
+                          Desmarcar como Paga
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => markBillAsPaid(bill.cardName, selectedMonth, selectedYear, bill.amount)}
+                          className="flex-1"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Marcar como Paga
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(bill.amount)}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

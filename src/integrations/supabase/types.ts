@@ -44,6 +44,48 @@ export type Database = {
         }
         Relationships: []
       }
+      card_bill_payments: {
+        Row: {
+          amount: number
+          card_name: string
+          created_at: string
+          group_id: string
+          id: string
+          is_paid: boolean
+          month: number
+          paid_at: string | null
+          paid_by: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount: number
+          card_name: string
+          created_at?: string
+          group_id: string
+          id?: string
+          is_paid?: boolean
+          month: number
+          paid_at?: string | null
+          paid_by: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          card_name?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          is_paid?: boolean
+          month?: number
+          paid_at?: string | null
+          paid_by?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       card_configurations: {
         Row: {
           card_name: string
