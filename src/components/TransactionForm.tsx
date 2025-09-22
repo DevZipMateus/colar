@@ -240,7 +240,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
               <Checkbox
                 id="recurring"
                 checked={formData.is_recurring}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: !!checked }))}
+                onCheckedChange={(checked) => {
+                  console.log('Recurring checkbox changed:', checked, typeof checked);
+                  const boolValue = checked === true;
+                  console.log('Setting is_recurring to:', boolValue);
+                  setFormData(prev => ({ ...prev, is_recurring: boolValue }));
+                }}
               />
               <Label htmlFor="recurring">Gasto fixo/recorrente</Label>
             </div>
@@ -249,7 +254,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
               <Checkbox
                 id="marked_for_split"
                 checked={formData.marked_for_split}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, marked_for_split: !!checked }))}
+                onCheckedChange={(checked) => {
+                  console.log('Split checkbox changed:', checked, typeof checked);
+                  const boolValue = checked === true;
+                  console.log('Setting marked_for_split to:', boolValue);
+                  setFormData(prev => ({ ...prev, marked_for_split: boolValue }));
+                }}
               />
               <Label htmlFor="marked_for_split">Marcar para divisão posterior</Label>
             </div>
