@@ -190,6 +190,16 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
         </Card>
       ) : (
         <div className="grid gap-4">
+          {/* Quick Create Button at top of list */}
+          <Card className="border-dashed">
+            <CardContent className="flex items-center justify-center py-6">
+              <Button onClick={() => setIsCreateModalOpen(true)} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Nova Divisão
+              </Button>
+            </CardContent>
+          </Card>
+          
           {splits.map((split) => {
             const stats = getSplitStats(split.id);
             return (

@@ -188,10 +188,15 @@ export const useExpenseSplits = (groupId: string) => {
 
   const recalculateSplitTotal = async (splitId: string) => {
     try {
-      // Get all transactions for this split
-      const splitTxs = splitTransactions.filter(st => st.split_id === splitId);
+      // Fetch fresh split transactions from database to ensure we have latest data
+      const { data: splitTxs, error: splitTxError } = await supabase
+        .from('split_transactions')
+        .select('transaction_id')
+        .eq('split_id', splitId);
+
+      if (splitTxError) throw splitTxError;
       
-      if (splitTxs.length === 0) {
+      if (!splitTxs || splitTxs.length === 0) {
         // Update split total to 0
         const { error } = await supabase
           .from('expense_splits')
@@ -216,7 +221,7 @@ export const useExpenseSplits = (groupId: string) => {
 
       if (txError) throw txError;
 
-      const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalAmount = transactions?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
 
       // Update split total
       const { error } = await supabase
