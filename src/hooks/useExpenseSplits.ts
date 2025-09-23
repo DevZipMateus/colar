@@ -357,6 +357,93 @@ export const useExpenseSplits = (groupId: string) => {
     return payments.filter(payment => payment.split_id === splitId);
   };
 
+  const regeneratePaymentsForSplit = async (splitId: string) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      // Get the split details
+      const { data: split, error: splitError } = await supabase
+        .from('expense_splits')
+        .select('*')
+        .eq('id', splitId)
+        .single();
+
+      if (splitError) throw splitError;
+
+      // Get all group members
+      const { data: members, error: membersError } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', split.group_id);
+
+      if (membersError) throw membersError;
+
+      // Delete existing payments for this split
+      const { error: deleteError } = await supabase
+        .from('split_payments')
+        .delete()
+        .eq('split_id', splitId);
+
+      if (deleteError) throw deleteError;
+
+      // Create new payments with equal division
+      if (members && members.length > 0) {
+        const amountPerMember = split.total_amount / members.length;
+        const paymentsToCreate = members.map(member => ({
+          split_id: splitId,
+          user_id: member.user_id,
+          amount_owed: amountPerMember,
+        }));
+
+        const { data: newPayments, error: paymentsError } = await supabase
+          .from('split_payments')
+          .insert(paymentsToCreate)
+          .select();
+
+        if (paymentsError) throw paymentsError;
+
+        // Update local state
+        setPayments(prev => [
+          ...prev.filter(p => p.split_id !== splitId),
+          ...newPayments
+        ]);
+
+        return newPayments;
+      }
+    } catch (error) {
+      console.error('Error regenerating payments for split:', error);
+      throw error;
+    }
+  };
+
+  const fixExistingSplits = async () => {
+    try {
+      // Get splits that need fixing
+      const { data: splitsToFix, error } = await supabase
+        .from('expense_splits')
+        .select('id, split_name')
+        .in('split_name', ['Contas da Casa', 'Itens para casa'])
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      if (splitsToFix && splitsToFix.length > 0) {
+        for (const split of splitsToFix) {
+          // Recalculate the total first
+          await recalculateSplitTotal(split.id);
+          // Then regenerate payments
+          await regeneratePaymentsForSplit(split.id);
+        }
+
+        console.log('Fixed splits:', splitsToFix.map(s => s.split_name).join(', '));
+        return true;
+      }
+    } catch (error) {
+      console.error('Error fixing existing splits:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     fetchSplits();
   }, [groupId, user]);
@@ -376,6 +463,8 @@ export const useExpenseSplits = (groupId: string) => {
     getPaymentsBySplit,
     updateSplitStatus,
     deleteSplit,
+    regeneratePaymentsForSplit,
+    fixExistingSplits,
     refetch: fetchSplits
   };
 };
