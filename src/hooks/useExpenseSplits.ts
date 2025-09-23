@@ -381,18 +381,10 @@ export const useExpenseSplits = (groupId: string) => {
 
       if (membersError) throw membersError;
 
-      // Delete existing payments for this split
-      const { error: deleteError } = await supabase
-        .from('split_payments')
-        .delete()
-        .eq('split_id', splitId);
-
-      if (deleteError) throw deleteError;
-
-      // Create new payments with equal division using the updated total
+      // Upsert payments to avoid duplicates without requiring DELETE policy
       if (members && members.length > 0) {
         const amountPerMember = split.total_amount / members.length;
-        const paymentsToCreate = members.map(member => ({
+        const paymentsToUpsert = members.map(member => ({
           split_id: splitId,
           user_id: member.user_id,
           amount_owed: amountPerMember,
@@ -400,12 +392,12 @@ export const useExpenseSplits = (groupId: string) => {
 
         const { data: newPayments, error: paymentsError } = await supabase
           .from('split_payments')
-          .insert(paymentsToCreate)
+          .upsert(paymentsToUpsert, { onConflict: 'split_id,user_id' })
           .select();
 
         if (paymentsError) throw paymentsError;
 
-        // Update local state
+        // Update local state (replace payments for this split)
         setPayments(prev => [
           ...prev.filter(p => p.split_id !== splitId),
           ...newPayments
