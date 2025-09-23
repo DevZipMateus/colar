@@ -6,12 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Minus, Edit, DollarSign, Calendar, CreditCard, User, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Edit, DollarSign, Calendar, CreditCard, User, CheckCircle2, Clock, RefreshCw, Settings } from 'lucide-react';
 import { differenceInMonths } from 'date-fns';
 import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -29,6 +30,8 @@ interface DivisionReportProps {
 export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId, onBack }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<{ paymentId: string; amount: number } | null>(null);
+  const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = useState(false);
+  const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
 
   const { 
     splits, 
@@ -106,6 +109,73 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
     }
   };
 
+  const handleOpenCustomDivision = () => {
+    // Inicializar com os valores atuais
+    const currentAmounts: Record<string, number> = {};
+    splitPayments.forEach(payment => {
+      currentAmounts[payment.user_id] = payment.amount_owed;
+    });
+    setCustomAmounts(currentAmounts);
+    setIsCustomDivisionModalOpen(true);
+  };
+
+  const handleCustomAmountChange = (userId: string, amount: string) => {
+    const numAmount = parseFloat(amount) || 0;
+    setCustomAmounts(prev => ({
+      ...prev,
+      [userId]: numAmount
+    }));
+  };
+
+  const handleSaveCustomDivision = async () => {
+    if (!split) return;
+
+    const totalCustom = Object.values(customAmounts).reduce((sum, amount) => sum + amount, 0);
+    
+    if (Math.abs(totalCustom - split.total_amount) > 0.01) {
+      toast({
+        title: "Erro na divisão",
+        description: `A soma dos valores (${formatCurrency(totalCustom)}) deve ser igual ao total da divisão (${formatCurrency(split.total_amount)}).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Atualizar cada pagamento individualmente
+      const updatePromises = Object.entries(customAmounts).map(async ([userId, amount]) => {
+        const payment = splitPayments.find(p => p.user_id === userId);
+        if (payment) {
+          const { error } = await supabase
+            .from('split_payments')
+            .update({ amount_owed: amount })
+            .eq('id', payment.id);
+          
+          if (error) throw error;
+        }
+      });
+
+      await Promise.all(updatePromises);
+      
+      toast({
+        title: "Divisão personalizada salva",
+        description: "Os valores foram atualizados com sucesso!",
+      });
+      
+      setIsCustomDivisionModalOpen(false);
+      // Forçar atualização dos dados
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error updating custom division:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar divisão personalizada. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getMemberName = (userId: string) => {
     const member = members.find(m => m.user_id === userId);
     return member?.profiles?.name || member?.user_id || 'Usuário desconhecido';
@@ -153,15 +223,25 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
           {split.status === 'active' ? 'Ativa' : 'Finalizada'}
         </Badge>
         {split.status === 'active' && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRecalculatePayments}
-            className="ml-2"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Recalcular total e pagamentos
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRecalculatePayments}
+              className="ml-2"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Recalcular total e pagamentos
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenCustomDivision}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Ajustar valores manualmente
+            </Button>
+          </>
         )}
       </div>
 
@@ -318,6 +398,62 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Divisão Personalizada */}
+      <Dialog open={isCustomDivisionModalOpen} onOpenChange={setIsCustomDivisionModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ajustar Divisão Manualmente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Total da divisão: <span className="font-semibold">{formatCurrency(split?.total_amount || 0)}</span>
+            </div>
+            
+            {splitPayments.map((payment) => {
+              const member = members.find(m => m.user_id === payment.user_id);
+              const memberName = member?.profiles?.name || 'Usuário desconhecido';
+              
+              return (
+                <div key={payment.id} className="space-y-2">
+                  <Label htmlFor={`amount-${payment.user_id}`}>
+                    {memberName}
+                  </Label>
+                  <Input
+                    id={`amount-${payment.user_id}`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={customAmounts[payment.user_id] || 0}
+                    onChange={(e) => handleCustomAmountChange(payment.user_id, e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              );
+            })}
+            
+            <div className="text-sm">
+              <span className="text-muted-foreground">Soma atual: </span>
+              <span className={`font-semibold ${
+                Math.abs(Object.values(customAmounts).reduce((sum, amount) => sum + amount, 0) - (split?.total_amount || 0)) > 0.01 
+                  ? 'text-red-600' 
+                  : 'text-green-600'
+              }`}>
+                {formatCurrency(Object.values(customAmounts).reduce((sum, amount) => sum + amount, 0))}
+              </span>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsCustomDivisionModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveCustomDivision}>
+                Salvar Divisão
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
