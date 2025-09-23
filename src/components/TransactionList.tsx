@@ -266,6 +266,10 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                          <Badge variant="secondary" className="text-xs">
                            {transaction.installment_number}/{transaction.installments}
                          </Badge>
+                       ) : transaction.installments && transaction.installments > 1 ? (
+                         <Badge variant="secondary" className="text-xs">
+                           1/{transaction.installments}
+                         </Badge>
                        ) : null}
                     </div>
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
@@ -377,6 +381,10 @@ export const TransactionList = ({ groupId }: TransactionListProps) => {
                              ) : transaction.installments && transaction.installment_number ? (
                                <span className="text-sm">
                                  {transaction.installment_number}/{transaction.installments}
+                               </span>
+                             ) : transaction.installments && transaction.installments > 1 ? (
+                               <span className="text-sm">
+                                 1/{transaction.installments}
                                </span>
                              ) : (
                                <span className="text-muted-foreground">À vista</span>
