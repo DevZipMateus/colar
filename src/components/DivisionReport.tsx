@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Plus, Minus, Edit, DollarSign, Calendar, CreditCard, User, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
+import { differenceInMonths } from 'date-fns';
 import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
@@ -108,6 +109,24 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
   const getMemberName = (userId: string) => {
     const member = members.find(m => m.user_id === userId);
     return member?.profiles?.name || member?.user_id || 'Usuário desconhecido';
+  };
+
+  const getCurrentInstallmentNumber = (transactionDate: string, totalInstallments: number) => {
+    const currentDate = new Date();
+    const startDate = new Date(transactionDate);
+    const monthsDifference = differenceInMonths(currentDate, startDate) + 1;
+    
+    // Garante que não passe do total de parcelas
+    if (monthsDifference > totalInstallments) {
+      return totalInstallments;
+    }
+    
+    // Garante que não seja menor que 1
+    if (monthsDifference < 1) {
+      return 1;
+    }
+    
+    return monthsDifference;
   };
 
   if (!split) {
@@ -225,7 +244,7 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
                         <>
                           <span className="font-semibold">{formatCurrency(transaction.amount / transaction.installments)}</span>
                           <Badge variant="secondary" className="ml-2 text-xs">
-                            1/{transaction.installments}
+                            {getCurrentInstallmentNumber(transaction.date, transaction.installments)}/{transaction.installments}
                           </Badge>
                         </>
                       ) : (
