@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, FileText, Edit, Trash2, DollarSign, Users, CheckCircle } from 'lucide-react';
+import { Plus, FileText, Edit, Trash2, DollarSign, Users, CheckCircle, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +29,7 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
   const [newSplitDescription, setNewSplitDescription] = useState('');
   const [editingSplit, setEditingSplit] = useState<any>(null);
   
-  const { splits, loading, createExpenseSplit, updateSplitStatus, deleteSplit, getPaymentsBySplit, refetch } = useExpenseSplits(groupId);
+  const { splits, loading, createExpenseSplit, updateSplitStatus, deleteSplit, getPaymentsBySplit, regeneratePaymentsForSplit, refetch } = useExpenseSplits(groupId);
   const { members } = useGroupMembers(groupId);
   const { toast } = useToast();
 
@@ -44,14 +44,21 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
     }
 
     try {
-      await createExpenseSplit(newSplitName, newSplitDescription);
+      const newSplit = await createExpenseSplit(newSplitName, newSplitDescription);
+      
+      // Automatically generate payments for all group members
+      if (newSplit && members.length > 0) {
+        await regeneratePaymentsForSplit(newSplit.id);
+      }
+      
       setIsCreateModalOpen(false);
       setNewSplitName('');
       setNewSplitDescription('');
       toast({
         title: "Divisão criada",
-        description: "Nova divisão criada com sucesso!",
+        description: "Nova divisão criada com participantes incluídos!",
       });
+      await refetch();
     } catch (error) {
       console.error('Error creating split:', error);
       toast({
@@ -108,6 +115,34 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
     const totalPaid = payments.filter(p => p.is_settled).length;
     const totalMembers = payments.length;
     return { totalPaid, totalMembers };
+  };
+
+  const needsPaymentRegeneration = (splitId: string) => {
+    const payments = getPaymentsBySplit(splitId);
+    const split = splits.find(s => s.id === splitId);
+    
+    // If split has transactions but no payments, or payments don't match member count
+    return split && split.total_amount > 0 && (payments.length === 0 || payments.length !== members.length);
+  };
+
+  const handleRegeneratePayments = async (splitId: string) => {
+    if (window.confirm('Tem certeza que deseja regenerar os pagamentos desta divisão? Isso irá recalcular os valores para todos os participantes.')) {
+      try {
+        await regeneratePaymentsForSplit(splitId);
+        await refetch();
+        toast({
+          title: "Pagamentos regenerados",
+          description: "Os pagamentos foram recalculados com sucesso!",
+        });
+      } catch (error) {
+        console.error('Error regenerating payments:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao regenerar pagamentos. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -202,6 +237,8 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
           
           {splits.map((split) => {
             const stats = getSplitStats(split.id);
+            const needsRegeneration = needsPaymentRegeneration(split.id);
+            
             return (
               <Card key={split.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
@@ -210,6 +247,12 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
                       <CardTitle className="flex items-center gap-2">
                         {split.split_name}
                         {getStatusBadge(split.status)}
+                        {needsRegeneration && (
+                          <Badge variant="destructive" className="flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Sem Pagamentos
+                          </Badge>
+                        )}
                       </CardTitle>
                       {split.description && (
                         <p className="text-sm text-muted-foreground mt-1">
@@ -218,6 +261,16 @@ export const DivisionManager: React.FC<DivisionManagerProps> = ({ groupId, onOpe
                       )}
                     </div>
                     <div className="flex space-x-2">
+                      {needsRegeneration && split.status === 'active' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleRegeneratePayments(split.id)}
+                          title="Regenerar pagamentos para todos os participantes"
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
