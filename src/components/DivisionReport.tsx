@@ -121,10 +121,29 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
 
   const handleCustomAmountChange = (userId: string, amount: string) => {
     const numAmount = parseFloat(amount) || 0;
-    setCustomAmounts(prev => ({
-      ...prev,
-      [userId]: numAmount
-    }));
+    const totalAmount = split?.total_amount || 0;
+    
+    // Calcular o valor restante após esta alteração
+    const remainingAmount = totalAmount - numAmount;
+    
+    // Identificar outros participantes (exceto o que está sendo editado)
+    const otherUserIds = splitPayments
+      .map(p => p.user_id)
+      .filter(id => id !== userId);
+    
+    // Distribuir o valor restante igualmente entre os outros participantes
+    const amountPerOther = otherUserIds.length > 0 ? remainingAmount / otherUserIds.length : 0;
+    
+    // Atualizar todos os valores
+    const newAmounts = { ...customAmounts };
+    newAmounts[userId] = numAmount;
+    
+    // Distribuir o restante para os outros participantes
+    otherUserIds.forEach(otherId => {
+      newAmounts[otherId] = Math.max(0, amountPerOther); // Garantir que não seja negativo
+    });
+    
+    setCustomAmounts(newAmounts);
   };
 
   const handleSaveCustomDivision = async () => {
