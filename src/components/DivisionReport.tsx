@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Plus, Minus, Edit, DollarSign, Calendar, CreditCard, User, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Edit, DollarSign, Calendar, CreditCard, User, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
 import { useExpenseSplits } from '@/hooks/useExpenseSplits';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useGroupMembers } from '@/hooks/useGroupMembers';
@@ -36,7 +36,8 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
     removeTransactionFromSplit, 
     markPaymentAsSettled, 
     getPaymentsBySplit,
-    getTransactionsBySplit
+    getTransactionsBySplit,
+    regeneratePaymentsForSplit
   } = useExpenseSplits(groupId);
   
   const { transactions } = useFinancialData(groupId);
@@ -87,6 +88,23 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
     }
   };
 
+  const handleRecalculatePayments = async () => {
+    try {
+      await regeneratePaymentsForSplit(splitId);
+      toast({
+        title: "Recalculado com sucesso",
+        description: "O total e os pagamentos foram recalculados.",
+      });
+    } catch (error) {
+      console.error('Error recalculating payments:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao recalcular pagamentos. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getMemberName = (userId: string) => {
     const member = members.find(m => m.user_id === userId);
     return member?.profiles?.name || member?.user_id || 'Usuário desconhecido';
@@ -115,6 +133,17 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
         <Badge variant={split.status === 'active' ? 'default' : 'secondary'}>
           {split.status === 'active' ? 'Ativa' : 'Finalizada'}
         </Badge>
+        {split.status === 'active' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRecalculatePayments}
+            className="ml-2"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Recalcular total e pagamentos
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}

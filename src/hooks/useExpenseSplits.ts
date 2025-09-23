@@ -361,7 +361,10 @@ export const useExpenseSplits = (groupId: string) => {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      // Get the split details
+      // FIRST: Recalculate the split total to ensure it's up to date
+      await recalculateSplitTotal(splitId);
+
+      // Get the updated split details
       const { data: split, error: splitError } = await supabase
         .from('expense_splits')
         .select('*')
@@ -386,7 +389,7 @@ export const useExpenseSplits = (groupId: string) => {
 
       if (deleteError) throw deleteError;
 
-      // Create new payments with equal division
+      // Create new payments with equal division using the updated total
       if (members && members.length > 0) {
         const amountPerMember = split.total_amount / members.length;
         const paymentsToCreate = members.map(member => ({
