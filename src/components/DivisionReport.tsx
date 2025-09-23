@@ -191,7 +191,18 @@ export const DivisionReport: React.FC<DivisionReportProps> = ({ splitId, groupId
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-semibold">{formatCurrency(transaction.amount)}</span>
+                    <div className="text-right">
+                      {transaction.installments && transaction.installments > 1 ? (
+                        <>
+                          <span className="font-semibold">{formatCurrency(transaction.amount / transaction.installments)}</span>
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            1/{transaction.installments}
+                          </Badge>
+                        </>
+                      ) : (
+                        <span className="font-semibold">{formatCurrency(transaction.amount)}</span>
+                      )}
+                    </div>
                     {split.status === 'active' && (
                       <Button
                         variant="outline"
