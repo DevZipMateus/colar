@@ -109,19 +109,25 @@ export const useGroups = () => {
 
     // Check email confirmation - be more flexible for password reset users
     if (!user.email_confirmed_at) {
-      // For users who reset password, they might not have email_confirmed_at set
-      // but still be able to authenticate, so we'll be less strict
       console.log('⚠️ Email confirmation status unclear, proceeding with caution');
     }
 
     try {
-      const cleanInviteCode = inviteCode.trim().toLowerCase();
+      // Clean and validate invite code
+      const cleanInviteCode = inviteCode.trim();
       
-      // Find group by invite code
+      // Validate invite code format (12 hex characters)
+      if (!cleanInviteCode || cleanInviteCode.length !== 12 || !/^[a-fA-F0-9]{12}$/.test(cleanInviteCode)) {
+        return { error: 'Formato de código inválido. Use 12 caracteres.' };
+      }
+
+      console.log('🔍 Searching for group with code:', cleanInviteCode);
+      
+      // Find group by invite code using case-insensitive search
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .select('*')
-        .eq('invite_code', cleanInviteCode)
+        .ilike('invite_code', cleanInviteCode)
         .maybeSingle();
 
       if (groupError) {
