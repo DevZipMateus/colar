@@ -688,7 +688,7 @@ export const useFinancialData = (groupId: string | null) => {
     console.log('CSV parsing to be implemented', csvContent);
   };
 
-  const generateReport = (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string) => {
+  const generateReport = (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string, mode?: 'monthly' | 'full') => {
     if (!summary) return '';
 
     if (type === 'full') {

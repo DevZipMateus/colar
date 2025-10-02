@@ -8,7 +8,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface ReportGeneratorProps {
   summary: FinancialSummary;
-  onGenerateReport: (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string) => string;
+  onGenerateReport: (type: 'full' | 'card' | 'user' | 'category', cardName?: string, userId?: string, categoryName?: string, mode?: 'monthly' | 'full') => string;
 }
 
 export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGenerateReport }) => {
@@ -201,19 +201,47 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ summary, onGen
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleCopyCategoryReport(category.name)}
+                    onClick={() => {
+                      const report = onGenerateReport('category', undefined, undefined, category.name, 'monthly');
+                      navigator.clipboard.writeText(report);
+                      toast({
+                        title: "Relatório copiado",
+                        description: `O relatório mensal de ${category.name} foi copiado.`,
+                      });
+                    }}
                   >
-                    <Copy className="w-4 h-4" />
+                    <Copy className="w-4 h-4 mr-1" />
+                    Mensal
                   </Button>
                   
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleShareCategoryWhatsApp(category.name)}
+                    onClick={() => {
+                      const report = onGenerateReport('category', undefined, undefined, category.name, 'full');
+                      navigator.clipboard.writeText(report);
+                      toast({
+                        title: "Relatório copiado",
+                        description: `O relatório completo de ${category.name} foi copiado.`,
+                      });
+                    }}
+                  >
+                    <Copy className="w-4 h-4 mr-1" />
+                    Completo
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const report = onGenerateReport('category', undefined, undefined, category.name, 'full');
+                      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(report)}`;
+                      window.open(whatsappUrl, '_blank');
+                    }}
                   >
                     <Share className="w-4 h-4" />
                   </Button>
