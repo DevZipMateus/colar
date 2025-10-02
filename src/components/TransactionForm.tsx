@@ -26,7 +26,7 @@ interface TransactionFormProps {
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editingTransaction, onClose, onSuccess }) => {
   const { addTransaction, updateTransaction } = useFinancialData(groupId);
-  const { createInstallments } = useInstallmentTracking(groupId);
+  const { createInstallments, syncInstallments } = useInstallmentTracking(groupId);
   const { categories } = useExpenseCategories(groupId);
   const { configurations } = useCardConfigurations(groupId);
   const [formData, setFormData] = useState({
@@ -94,6 +94,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ groupId, editi
       let result;
       if (editingTransaction) {
         result = await updateTransaction(editingTransaction.id, transactionData);
+        
+        // Sync installments if they changed
+        if (result && result.success && formData.card_type === 'credit' && installments && installments > 1) {
+          const transactionDate = new Date(formData.date);
+          const startMonth = transactionDate.getMonth() + 1;
+          const startYear = transactionDate.getFullYear();
+          
+          await syncInstallments(
+            editingTransaction.id,
+            installments,
+            amount,
+            startMonth,
+            startYear
+          );
+        }
       } else {
         result = await addTransaction(transactionData);
         

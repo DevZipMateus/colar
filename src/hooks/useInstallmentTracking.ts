@@ -146,6 +146,124 @@ export const useInstallmentTracking = (groupId: string) => {
     }
   };
 
+  const syncInstallments = async (
+    transactionId: string,
+    newInstallmentCount: number,
+    totalAmount: number,
+    startMonth: number,
+    startYear: number
+  ) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      // Get existing installments
+      const { data: existingInstallments, error: fetchError } = await supabase
+        .from('installment_tracking')
+        .select('*')
+        .eq('transaction_id', transactionId)
+        .order('installment_number');
+
+      if (fetchError) throw fetchError;
+
+      const existingCount = existingInstallments?.length || 0;
+      const installmentAmount = totalAmount / newInstallmentCount;
+
+      if (existingCount === newInstallmentCount) {
+        // Just update the total_installments and amounts
+        const updates = existingInstallments!.map(inst => ({
+          id: inst.id,
+          total_installments: newInstallmentCount,
+          amount: installmentAmount
+        }));
+
+        for (const update of updates) {
+          await supabase
+            .from('installment_tracking')
+            .update({ 
+              total_installments: update.total_installments,
+              amount: update.amount 
+            })
+            .eq('id', update.id);
+        }
+      } else if (existingCount < newInstallmentCount) {
+        // Update existing installments
+        if (existingInstallments && existingInstallments.length > 0) {
+          for (const inst of existingInstallments) {
+            await supabase
+              .from('installment_tracking')
+              .update({ 
+                total_installments: newInstallmentCount,
+                amount: installmentAmount 
+              })
+              .eq('id', inst.id);
+          }
+        }
+
+        // Create missing installments
+        const installmentsToCreate = [];
+        for (let i = existingCount; i < newInstallmentCount; i++) {
+          let month = startMonth + i;
+          let year = startYear;
+          
+          while (month > 12) {
+            month -= 12;
+            year += 1;
+          }
+
+          installmentsToCreate.push({
+            group_id: groupId,
+            transaction_id: transactionId,
+            installment_number: i + 1,
+            total_installments: newInstallmentCount,
+            amount: installmentAmount,
+            due_month: month,
+            due_year: year,
+            created_by: user.id,
+          });
+        }
+
+        if (installmentsToCreate.length > 0) {
+          const { error: insertError } = await supabase
+            .from('installment_tracking')
+            .insert(installmentsToCreate);
+
+          if (insertError) throw insertError;
+        }
+      } else {
+        // Remove extra installments (only unpaid ones)
+        const toRemove = existingInstallments!.slice(newInstallmentCount);
+        const unpaidToRemove = toRemove.filter(inst => !inst.is_paid);
+        
+        if (unpaidToRemove.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('installment_tracking')
+            .delete()
+            .in('id', unpaidToRemove.map(inst => inst.id));
+
+          if (deleteError) throw deleteError;
+        }
+
+        // Update remaining installments
+        const toKeep = existingInstallments!.slice(0, newInstallmentCount);
+        for (const inst of toKeep) {
+          await supabase
+            .from('installment_tracking')
+            .update({ 
+              total_installments: newInstallmentCount,
+              amount: installmentAmount 
+            })
+            .eq('id', inst.id);
+        }
+      }
+
+      await fetchInstallments();
+      return true;
+    } catch (error) {
+      console.error('Error syncing installments:', error);
+      throw error;
+    }
+  };
+
   const getInstallmentsByMonth = (month: number, year: number) => {
     return installments.filter(
       inst => inst.due_month === month && inst.due_year === year
@@ -173,6 +291,7 @@ export const useInstallmentTracking = (groupId: string) => {
     installments,
     loading,
     createInstallments,
+    syncInstallments,
     markInstallmentAsPaid,
     getInstallmentsByMonth,
     getUpcomingInstallments,
