@@ -49,10 +49,12 @@ export type Database = {
           amount: number
           card_name: string
           created_at: string
+          due_date: string | null
           group_id: string
           id: string
           is_paid: boolean
           month: number
+          notes: string | null
           paid_at: string | null
           paid_by: string
           updated_at: string
@@ -62,10 +64,12 @@ export type Database = {
           amount: number
           card_name: string
           created_at?: string
+          due_date?: string | null
           group_id: string
           id?: string
           is_paid?: boolean
           month: number
+          notes?: string | null
           paid_at?: string | null
           paid_by: string
           updated_at?: string
@@ -75,10 +79,12 @@ export type Database = {
           amount?: number
           card_name?: string
           created_at?: string
+          due_date?: string | null
           group_id?: string
           id?: string
           is_paid?: boolean
           month?: number
+          notes?: string | null
           paid_at?: string | null
           paid_by?: string
           updated_at?: string
@@ -688,6 +694,14 @@ export type Database = {
       generate_recurring_income: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      generate_upcoming_card_bills: {
+        Args: { p_group_id: string; p_months_ahead?: number }
+        Returns: undefined
+      }
+      get_bill_status: {
+        Args: { p_due_date: string; p_is_paid: boolean }
+        Returns: string
       }
       get_user_display_info: {
         Args: { target_user_id: string }
