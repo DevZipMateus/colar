@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, TrendingUp, TrendingDown, DollarSign, RepeatIcon } from 'lucide-react';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useIncomeEntries } from '@/hooks/useIncomeEntries';
 import { IncomeForm } from './IncomeForm';
+import { RecurringIncomeList } from './RecurringIncomeList';
 
 interface FinancialOverviewProps {
   groupId: string;
@@ -12,6 +14,7 @@ interface FinancialOverviewProps {
 
 export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
   const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [showRecurringIncome, setShowRecurringIncome] = useState(false);
   const { summary, loading: financialLoading } = useFinancialData(groupId);
   const { getTotalIncome, loading: incomeLoading, refetch: refetchIncome } = useIncomeEntries(groupId);
 
@@ -41,14 +44,25 @@ export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">Entradas do Mês</CardTitle>
-            <Button
-              onClick={() => setShowIncomeForm(true)}
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Nova Entrada
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowRecurringIncome(true)}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <RepeatIcon className="h-4 w-4" />
+                Rendas Recorrentes
+              </Button>
+              <Button
+                onClick={() => setShowIncomeForm(true)}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Nova Entrada
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -143,6 +157,15 @@ export const FinancialOverview = ({ groupId }: FinancialOverviewProps) => {
         onOpenChange={setShowIncomeForm}
         onSuccess={refetchIncome}
       />
+
+      <Dialog open={showRecurringIncome} onOpenChange={setShowRecurringIncome}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Rendas Recorrentes</DialogTitle>
+          </DialogHeader>
+          <RecurringIncomeList groupId={groupId} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

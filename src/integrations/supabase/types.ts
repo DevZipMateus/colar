@@ -533,6 +533,48 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_income: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          day_of_month: number
+          description: string
+          end_date: string | null
+          group_id: string
+          id: string
+          is_active: boolean
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          day_of_month: number
+          description: string
+          end_date?: string | null
+          group_id: string
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          day_of_month?: number
+          description?: string
+          end_date?: string | null
+          group_id?: string
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       split_payments: {
         Row: {
           amount_owed: number
@@ -640,6 +682,10 @@ export type Database = {
     }
     Functions: {
       generate_recurring_expenses: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      generate_recurring_income: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
