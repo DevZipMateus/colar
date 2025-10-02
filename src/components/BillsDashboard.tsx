@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +26,23 @@ export const BillsDashboard = ({ groupId }: BillsDashboardProps) => {
   } = useCardBillPayments(groupId);
 
   const [activeTab, setActiveTab] = useState('all');
+  const [isInitializing, setIsInitializing] = useState(true);
   const stats = getBillsStats();
+
+  // Auto-generate bills on first load if none exist
+  useEffect(() => {
+    const initializeBills = async () => {
+      if (billPayments.length === 0 && !loading) {
+        console.log('No bills found, generating automatically...');
+        await generateUpcomingBills();
+      }
+      setIsInitializing(false);
+    };
+
+    if (!loading) {
+      initializeBills();
+    }
+  }, [loading]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -83,7 +99,7 @@ export const BillsDashboard = ({ groupId }: BillsDashboardProps) => {
     return statusA.days - statusB.days;
   });
 
-  if (loading) {
+  if (loading || isInitializing) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-4">

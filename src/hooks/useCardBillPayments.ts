@@ -39,6 +39,7 @@ export const useCardBillPayments = (groupId: string) => {
 
     try {
       setLoading(true);
+      console.log('📋 Fetching bill payments for group:', groupId);
       const { data, error } = await supabase
         .from('card_bill_payments')
         .select('*')
@@ -46,6 +47,7 @@ export const useCardBillPayments = (groupId: string) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('📋 Bills fetched:', data?.length || 0);
       setBillPayments(data || []);
     } catch (error) {
       console.error('Error fetching bill payments:', error);
@@ -166,13 +168,18 @@ export const useCardBillPayments = (groupId: string) => {
     if (!user) return;
 
     try {
+      console.log('🔄 Generating upcoming bills for group:', groupId);
       const { error } = await supabase.rpc('generate_upcoming_card_bills', {
         p_group_id: groupId,
         p_months_ahead: 3
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error generating bills:', error);
+        throw error;
+      }
       
+      console.log('✅ Bills generated successfully!');
       toast.success('Faturas futuras geradas com sucesso!');
       await fetchBillPayments();
     } catch (error) {
