@@ -778,11 +778,24 @@ ${userSummary.transactions.map(t =>
 ).join('\n')}
       `.trim();
     } else if (type === 'category' && categoryName) {
-      const category = summary.categories.find(c => c.name === categoryName);
+      // Decide which data source to use based on mode
+      const useFullData = mode === 'full';
+      const sourceCategories = useFullData ? allCategoriesData : summary.categories;
+      const category = sourceCategories.find(c => c.name === categoryName);
+      
       if (!category) return 'Categoria não encontrada';
 
+      // Filter original transactions only (exclude synthetic installments)
+      const originalTransactions = category.transactions.filter(t => 
+        !t.id.startsWith('synthetic-') && !t.id.startsWith('card-installment-')
+      );
+
+      // Calculate totals based on original transactions
+      const totalSpent = originalTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const numberOfPurchases = originalTransactions.length;
+
       // Group by user within this category
-      const userBreakdown = category.transactions.reduce((acc, transaction) => {
+      const userBreakdown = originalTransactions.reduce((acc, transaction) => {
         const userKey = transaction.created_by;
         if (!acc[userKey]) {
           acc[userKey] = { total: 0, count: 0, name: transaction.user_name || 'Usuário desconhecido' };
@@ -793,7 +806,7 @@ ${userSummary.transactions.map(t =>
       }, {} as Record<string, { total: number; count: number; name: string }>);
 
       // Group by card within this category
-      const cardBreakdown = category.transactions.reduce((acc, transaction) => {
+      const cardBreakdown = originalTransactions.reduce((acc, transaction) => {
         const cardKey = transaction.card_name;
         if (!acc[cardKey]) {
           acc[cardKey] = { total: 0, count: 0 };
@@ -803,35 +816,36 @@ ${userSummary.transactions.map(t =>
         return acc;
       }, {} as Record<string, { total: number; count: number }>);
 
-      let reportText = `RELATÓRIO DA CATEGORIA: ${categoryName}\n\n`;
-      reportText += `💰 Total Gasto: R$ ${category.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      const modeLabel = useFullData ? ' (Completo)' : ' (Mensal)';
+      let reportText = `RELATÓRIO DA CATEGORIA${modeLabel}: ${categoryName}\n\n`;
+      reportText += `💰 Total Gasto: R$ ${totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
       reportText += `📊 Percentual do Total: ${category.percentage.toFixed(1)}%\n`;
-      reportText += `🔢 Número de Compras: ${category.transactions.length}\n\n`;
+      reportText += `🔢 Número de Compras: ${numberOfPurchases}\n\n`;
 
       reportText += `👥 GASTOS POR USUÁRIO NESTA CATEGORIA:\n`;
       Object.entries(userBreakdown)
         .sort((a, b) => b[1].total - a[1].total)
         .forEach(([userId, data]) => {
-          reportText += `• ${data.name}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} compras)\n`;
+          reportText += `• ${data.name}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${data.count} compras)\n`;
         });
 
       reportText += `\n💳 GASTOS POR CARTÃO NESTA CATEGORIA:\n`;
       Object.entries(cardBreakdown)
         .sort((a, b) => b[1].total - a[1].total)
         .forEach(([cardName, data]) => {
-          reportText += `• ${cardName}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${data.count} compras)\n`;
+          reportText += `• ${cardName}: R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${data.count} compras)\n`;
         });
 
       reportText += `\n📋 TODAS AS COMPRAS:\n`;
-      category.transactions
+      originalTransactions
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .forEach(transaction => {
           const formattedDate = parseDateOnly(transaction.date).toLocaleDateString('pt-BR');
           let installmentInfo = '';
           if (transaction.installments && transaction.installments > 1) {
-            installmentInfo = ` • parcela ${transaction.installment_number}/${transaction.installments}`;
+            installmentInfo = ` • ${transaction.installments}x`;
           }
-          reportText += `• ${formattedDate} - ${transaction.description}: R$ ${Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${installmentInfo} (${transaction.card_name} • por ${transaction.user_name || 'Usuário desconhecido'})\n`;
+          reportText += `• ${formattedDate} - ${transaction.description}: R$ ${Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${installmentInfo} (${transaction.card_name} • por ${transaction.user_name || 'Usuário desconhecido'})\n`;
         });
 
       return reportText;
