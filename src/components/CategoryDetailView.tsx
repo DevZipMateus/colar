@@ -1,18 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, CreditCard } from 'lucide-react';
+import { ArrowLeft, Calendar, CreditCard, FileText } from 'lucide-react';
 import { CategorySummary, Transaction } from '@/hooks/useFinancialData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseDateOnly } from '@/lib/utils';
+import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
+import { CategoryInstallmentReport } from './CategoryInstallmentReport';
 
 interface CategoryDetailViewProps {
   category: CategorySummary;
   onBack: () => void;
+  groupId: string;
 }
 
-export const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({ category, onBack }) => {
+export const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({ category, onBack, groupId }) => {
+  const [showInstallmentReport, setShowInstallmentReport] = useState(false);
+  const { installments } = useInstallmentTracking(groupId);
+
   const formatCurrency = (value: number) => 
     `R$ ${value.toFixed(2).replace('.', ',')}`;
 
@@ -33,6 +39,25 @@ export const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({ category
     </div>
   );
 
+  // Filtrar parcelas desta categoria
+  const categoryInstallments = installments.filter(inst => {
+    const transaction = category.transactions.find(t => t.id === inst.transaction_id);
+    return !!transaction;
+  });
+
+  const hasInstallments = categoryInstallments.length > 0;
+
+  if (showInstallmentReport) {
+    return (
+      <CategoryInstallmentReport
+        categoryName={category.name}
+        transactions={category.transactions}
+        installments={categoryInstallments}
+        onBack={() => setShowInstallmentReport(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -48,12 +73,20 @@ export const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({ category
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold text-primary">
-            {formatCurrency(category.total)}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {category.percentage.toFixed(1)}% do total mensal
+        <div className="flex items-center gap-4">
+          {hasInstallments && (
+            <Button variant="outline" onClick={() => setShowInstallmentReport(true)}>
+              <FileText className="w-4 h-4 mr-2" />
+              Relatório de Parcelas
+            </Button>
+          )}
+          <div className="text-right">
+            <div className="text-3xl font-bold text-primary">
+              {formatCurrency(category.total)}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {category.percentage.toFixed(1)}% do total mensal
+            </div>
           </div>
         </div>
       </div>

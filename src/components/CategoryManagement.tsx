@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, ArrowLeft } from 'lucide-react';
+import { Eye, ArrowLeft, FileText } from 'lucide-react';
 import { useFinancialData, CategorySummary, Transaction } from '@/hooks/useFinancialData';
+import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
+import { CategoryInstallmentReport } from './CategoryInstallmentReport';
 
 interface CategoryManagementProps {
   groupId: string;
@@ -13,7 +15,9 @@ interface CategoryManagementProps {
 
 export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId }) => {
   const { summary, loading } = useFinancialData(groupId);
+  const { installments } = useInstallmentTracking(groupId);
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null);
+  const [showInstallmentReport, setShowInstallmentReport] = useState(false);
 
   if (loading) {
     return (
@@ -47,14 +51,40 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
   const formatCurrency = (value: number) => 
     `R$ ${value.toFixed(2).replace('.', ',')}`;
 
-  const CategoryDetailModal = ({ category }: { category: CategorySummary }) => (
-    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <ArrowLeft className="h-5 w-5" />
-          Detalhes da Categoria: {category.name}
-        </DialogTitle>
-      </DialogHeader>
+  const getCategoryInstallments = (category: CategorySummary) => {
+    return installments.filter(inst => {
+      const transaction = category.transactions.find(t => t.id === inst.transaction_id);
+      return !!transaction;
+    });
+  };
+
+  const CategoryDetailModal = ({ category }: { category: CategorySummary }) => {
+    const categoryInstallments = getCategoryInstallments(category);
+    const hasInstallments = categoryInstallments.length > 0;
+
+    return (
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowLeft className="h-5 w-5" />
+              Detalhes da Categoria: {category.name}
+            </div>
+            {hasInstallments && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setSelectedCategory(category);
+                  setShowInstallmentReport(true);
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Ver Relatório de Parcelas
+              </Button>
+            )}
+          </DialogTitle>
+        </DialogHeader>
       
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-4">
@@ -134,6 +164,18 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
       </div>
     </DialogContent>
   );
+};
+
+if (showInstallmentReport && selectedCategory) {
+  return (
+    <CategoryInstallmentReport
+      categoryName={selectedCategory.name}
+      transactions={selectedCategory.transactions}
+      installments={getCategoryInstallments(selectedCategory)}
+      onBack={() => setShowInstallmentReport(false)}
+    />
+  );
+}
 
   return (
     <div className="p-6 space-y-6">
