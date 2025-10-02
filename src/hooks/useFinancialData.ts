@@ -78,6 +78,7 @@ export interface FinancialSummary {
 export const useFinancialData = (groupId: string | null) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
+  const [allCategoriesData, setAllCategoriesData] = useState<CategorySummary[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
@@ -160,6 +161,7 @@ export const useFinancialData = (groupId: string | null) => {
 
       setTransactions(transactionsWithUsers as Transaction[]);
       calculateSummary(transactionsWithUsers as Transaction[], installmentData || [], userProfiles);
+      calculateAllCategoriesData(transactionsWithUsers as Transaction[], installmentData || [], userProfiles);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -442,6 +444,70 @@ export const useFinancialData = (groupId: string | null) => {
     };
 
     setSummary(summaryData);
+  };
+
+  const calculateAllCategoriesData = (transactionData: Transaction[], installmentData: any[] = [], userProfiles: any[] = []) => {
+    // Cria transações sintéticas para TODAS as parcelas (não apenas do mês atual)
+    const allInstallments = installmentData;
+    
+    // Group by categories (including ALL installments)
+    const categoryMap = new Map<string, { transactions: Transaction[] }>();
+    
+    // Add ALL original transactions (not filtered by month)
+    transactionData.forEach(t => {
+      const entry = categoryMap.get(t.category) || { transactions: [] };
+      entry.transactions.push(t);
+      categoryMap.set(t.category, entry);
+    });
+
+    // Add synthetic transactions for ALL installments
+    allInstallments.forEach(installment => {
+      const originalTransaction = transactionData.find(t => t.id === installment.transaction_id);
+      if (originalTransaction) {
+        const entry = categoryMap.get(originalTransaction.category) || { transactions: [] };
+        
+        // Create synthetic transaction for this installment
+        const syntheticTransaction: Transaction = {
+          id: `synthetic-all-${installment.id}`,
+          group_id: originalTransaction.group_id,
+          description: originalTransaction.description,
+          amount: installment.amount,
+          date: `${installment.due_year}-${String(installment.due_month).padStart(2, '0')}-01`,
+          category: originalTransaction.category,
+          card_name: originalTransaction.card_name,
+          card_type: originalTransaction.card_type,
+          installments: installment.total_installments,
+          installment_number: installment.installment_number,
+          is_recurring: originalTransaction.is_recurring,
+          created_by: installment.created_by,
+          created_at: installment.created_at,
+          user_name: userProfiles.find(u => u.id === installment.created_by)?.name || 'Usuário desconhecido',
+          user_avatar_url: userProfiles.find(u => u.id === installment.created_by)?.avatar_url,
+          installment_info: {
+            current_installment: installment.installment_number,
+            total_installments: installment.total_installments,
+            monthly_amount: installment.amount
+          }
+        };
+        
+        entry.transactions.push(syntheticTransaction);
+        categoryMap.set(originalTransaction.category, entry);
+      }
+    });
+
+    const allCategories: CategorySummary[] = Array.from(categoryMap.entries()).map(([name, data]) => {
+      const total = data.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      return {
+        name,
+        total,
+        percentage: 0, // Will be calculated when needed
+        transactions: data.transactions.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+      };
+    }).sort((a, b) => b.total - a.total);
+
+    setAllCategoriesData(allCategories);
   };
 
   const addTransaction = async (transactionData: Omit<Transaction, 'id' | 'created_at' | 'created_by'>) => {
@@ -781,6 +847,7 @@ ${userSummary.transactions.map(t =>
   return {
     transactions,
     summary,
+    allCategoriesData,
     loading,
     addTransaction,
     updateTransaction,

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, ArrowLeft, FileText } from 'lucide-react';
+import { Eye, ArrowLeft, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useFinancialData, CategorySummary, Transaction } from '@/hooks/useFinancialData';
 import { useInstallmentTracking } from '@/hooks/useInstallmentTracking';
 import { CategoryInstallmentReport } from './CategoryInstallmentReport';
@@ -14,10 +14,13 @@ interface CategoryManagementProps {
 }
 
 export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId }) => {
-  const { summary, loading } = useFinancialData(groupId);
+  const { summary, allCategoriesData, loading } = useFinancialData(groupId);
   const { installments } = useInstallmentTracking(groupId);
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null);
   const [showInstallmentReport, setShowInstallmentReport] = useState(false);
+  const [viewMode, setViewMode] = useState<'monthly' | 'full'>('monthly');
+
+  const currentCategories = viewMode === 'monthly' ? summary?.categories || [] : allCategoriesData;
 
   if (loading) {
     return (
@@ -56,6 +59,29 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
       const transaction = category.transactions.find(t => t.id === inst.transaction_id);
       return !!transaction;
     });
+  };
+
+  const getInstallmentStatus = (transaction: Transaction) => {
+    if (!transaction.installment_number) return null;
+    
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    const transactionDate = new Date(transaction.date);
+    const transactionMonth = transactionDate.getMonth() + 1;
+    const transactionYear = transactionDate.getFullYear();
+    
+    // Vencida
+    if (transactionYear < currentYear || (transactionYear === currentYear && transactionMonth < currentMonth)) {
+      return { label: 'Vencida', color: 'bg-red-100 text-red-800' };
+    }
+    // Mês atual
+    if (transactionYear === currentYear && transactionMonth === currentMonth) {
+      return { label: 'Atual', color: 'bg-yellow-100 text-yellow-800' };
+    }
+    // Futura
+    return { label: 'Futura', color: 'bg-blue-100 text-blue-800' };
   };
 
   const CategoryDetailModal = ({ category }: { category: CategorySummary }) => {
@@ -131,7 +157,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
               </TableHeader>
               <TableBody>
                 {category.transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
+                <TableRow key={transaction.id}>
                     <TableCell>
                       {new Date(transaction.date).toLocaleDateString('pt-BR')}
                     </TableCell>
@@ -150,10 +176,22 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
                       {formatCurrency(transaction.amount)}
                     </TableCell>
                     <TableCell>
-                      {transaction.installments ? 
-                        `${transaction.installment_number}/${transaction.installments}` : 
-                        'À vista'
-                      }
+                      <div className="flex items-center gap-2">
+                        {transaction.installments ? (
+                          <>
+                            <Badge variant="outline">
+                              {transaction.installment_number}/{transaction.installments}x
+                            </Badge>
+                            {viewMode === 'full' && getInstallmentStatus(transaction) && (
+                              <Badge className={getInstallmentStatus(transaction)!.color}>
+                                {getInstallmentStatus(transaction)!.label}
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
+                          'À vista'
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -181,13 +219,41 @@ if (showInstallmentReport && selectedCategory) {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Gestão por Categoria</h1>
-        <div className="text-sm text-muted-foreground">
-          {summary.categories.length} categorias encontradas
+        <div className="flex items-center gap-4">
+          <Button
+            variant={viewMode === 'monthly' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('monthly')}
+          >
+            {viewMode === 'monthly' ? <ToggleRight className="h-4 w-4 mr-2" /> : <ToggleLeft className="h-4 w-4 mr-2" />}
+            Visão Mensal
+          </Button>
+          <Button
+            variant={viewMode === 'full' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('full')}
+          >
+            {viewMode === 'full' ? <ToggleRight className="h-4 w-4 mr-2" /> : <ToggleLeft className="h-4 w-4 mr-2" />}
+            Visão Completa
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            {currentCategories.length} categorias encontradas
+          </div>
         </div>
       </div>
 
+      {viewMode === 'full' && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Visão Completa:</strong> Mostrando todas as transações e parcelas de todas as categorias (não apenas do mês atual).
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4">
-        {summary.categories.map((category, index) => (
+        {currentCategories.map((category, index) => (
           <Card key={category.name} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -239,11 +305,11 @@ if (showInstallmentReport && selectedCategory) {
         ))}
       </div>
 
-      {summary.categories.length === 0 && (
+      {currentCategories.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">
-              Nenhuma categoria encontrada para este mês.
+              {viewMode === 'monthly' ? 'Nenhuma categoria encontrada para este mês.' : 'Nenhuma categoria encontrada.'}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               Adicione algumas transações para começar a ver os dados organizados por categoria.
