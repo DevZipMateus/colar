@@ -101,12 +101,14 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ groupId 
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setSelectedCategory(category);
+                  // Buscar todas as transações desta categoria, não apenas do mês atual
+                  const fullCategory = allCategoriesData.find(c => c.name === category.name) || category;
+                  setSelectedCategory(fullCategory);
                   setShowInstallmentReport(true);
                 }}
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Ver Relatório de Parcelas
+                Ver Relatório de Parcelas (Todas)
               </Button>
             )}
           </DialogTitle>
