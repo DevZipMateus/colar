@@ -14,6 +14,7 @@ import { ReportGenerator } from './ReportGenerator';
 import { FinancialOverview } from './FinancialOverview';
 import { MonthlyExpenseView } from './MonthlyExpenseView';
 import { ExpenseDivisions } from './ExpenseDivisions';
+import { BillsDashboard } from './BillsDashboard';
 
 interface FinancialDashboardProps {
   groupId: string;
@@ -104,9 +105,10 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
 
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="overflow-x-auto">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 min-w-[600px] md:min-w-0">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 min-w-[700px] md:min-w-0">
             <TabsTrigger value="overview" className="text-xs md:text-sm">Resumo</TabsTrigger>
             <TabsTrigger value="monthly" className="text-xs md:text-sm">Mensal</TabsTrigger>
+            <TabsTrigger value="bills" className="text-xs md:text-sm">Faturas</TabsTrigger>
             <TabsTrigger value="splits" className="text-xs md:text-sm">Divisão</TabsTrigger>
             <TabsTrigger value="cards" className="text-xs md:text-sm">Cartões</TabsTrigger>
             <TabsTrigger value="categories" className="text-xs md:text-sm">Categorias</TabsTrigger>
@@ -121,6 +123,10 @@ export const FinancialDashboard = ({ groupId }: FinancialDashboardProps) => {
 
         <TabsContent value="monthly" className="space-y-4">
           <MonthlyExpenseView groupId={groupId} />
+        </TabsContent>
+
+        <TabsContent value="bills" className="space-y-4">
+          <BillsDashboard groupId={groupId} />
         </TabsContent>
 
         <TabsContent value="splits" className="space-y-4">
